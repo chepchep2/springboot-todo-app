@@ -1,5 +1,10 @@
-package com.chep.demo.todo;
+package com.chep.demo.todo.controller;
 
+import com.chep.demo.todo.dto.CreateTodoRequest;
+import com.chep.demo.todo.dto.UpdateTodoRequest;
+import com.chep.demo.todo.exception.TodoNotFoundException;
+import com.chep.demo.todo.domain.Todo;
+import com.chep.demo.todo.domain.TodoRepository;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
 import org.springframework.http.ResponseEntity;
@@ -23,17 +28,12 @@ public class TodoController {
         return todoRepository.findAll();
     }
 
-    record CreateTodoPayload(
-            @NotEmpty(message = "Title is required")
-            String title, String content) {}
-
-
     @PostMapping
     ResponseEntity<Void> createTodo(
-            @Valid @RequestBody CreateTodoPayload payload) {
+            @Valid @RequestBody CreateTodoRequest request) {
         var todo = new Todo();
-        todo.setTitle(payload.title());
-        todo.setContent(payload.content());
+        todo.setTitle(request.title());
+        todo.setContent(request.content());
         todo.setCompleted(false);
         todo.setCreatedAt(Instant.now());
 
@@ -47,19 +47,15 @@ public class TodoController {
         return ResponseEntity.created(url).build();
     }
 
-    record UpdateTodoPayload(
-            @NotEmpty(message = "Title is required")
-            String title, String content) {}
-
     @PutMapping("/{id}")
     ResponseEntity<Void> updateTodo(
             @PathVariable Long id,
-            @Valid @RequestBody UpdateTodoPayload payload
+            @Valid @RequestBody UpdateTodoRequest request
     ) {
         var todo = todoRepository.findById(id)
                 .orElseThrow(() -> new TodoNotFoundException("Todo not found"));
-        todo.setTitle(payload.title());
-        todo.setContent(payload.content());
+        todo.setTitle(request.title());
+        todo.setContent(request.content());
         todo.setUpdatedAt(Instant.now());
         todoRepository.save(todo);
 

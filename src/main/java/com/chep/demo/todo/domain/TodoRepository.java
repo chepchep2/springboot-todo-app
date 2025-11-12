@@ -1,4 +1,4 @@
-package com.chep.demo.todo;
+package com.chep.demo.todo.domain;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
