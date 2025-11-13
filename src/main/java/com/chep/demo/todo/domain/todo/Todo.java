@@ -1,4 +1,4 @@
-package com.chep.demo.todo.domain;
+package com.chep.demo.todo.domain.todo;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;

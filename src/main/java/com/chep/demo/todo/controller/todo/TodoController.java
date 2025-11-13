@@ -1,12 +1,11 @@
-package com.chep.demo.todo.controller;
+package com.chep.demo.todo.controller.todo;
 
-import com.chep.demo.todo.dto.CreateTodoRequest;
-import com.chep.demo.todo.dto.UpdateTodoRequest;
-import com.chep.demo.todo.exception.TodoNotFoundException;
-import com.chep.demo.todo.domain.Todo;
-import com.chep.demo.todo.domain.TodoRepository;
+import com.chep.demo.todo.dto.todo.CreateTodoRequest;
+import com.chep.demo.todo.dto.todo.UpdateTodoRequest;
+import com.chep.demo.todo.exception.todo.TodoNotFoundException;
+import com.chep.demo.todo.domain.todo.Todo;
+import com.chep.demo.todo.domain.todo.TodoRepository;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotEmpty;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
