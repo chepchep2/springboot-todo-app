@@ -1,8 +1,8 @@
 package com.chep.demo.todo.controller.auth;
 
-import com.chep.demo.todo.domain.user.User;
-import com.chep.demo.todo.dto.user.RegisterRequest;
-import com.chep.demo.todo.dto.user.RegisterResponse;
+import com.chep.demo.todo.dto.auth.AuthResponse;
+import com.chep.demo.todo.dto.auth.LoginRequest;
+import com.chep.demo.todo.dto.auth.RegisterRequest;
 import com.chep.demo.todo.service.auth.AuthService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -10,8 +10,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.net.URI;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -23,19 +21,27 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    ResponseEntity<RegisterResponse> registerUser(
+    ResponseEntity<AuthResponse> registerUser(
             @Valid @RequestBody RegisterRequest request) {
 
-        User user = authService.register(request.email(), request.password(), request.name());
-
-        RegisterResponse response = new RegisterResponse(
-                user.getId(),
-                user.getName(),
-                user.getEmail()
+        AuthResponse response = authService.register(
+                request.email(),
+                request.password(),
+                request.name()
         );
 
-        URI location = URI.create("/api/users/" + user.getId());
+        return ResponseEntity.ok(response);
+    }
 
-        return ResponseEntity.created(location).body(response);
+    @PostMapping("/login")
+    ResponseEntity<AuthResponse> loginUser(
+            @Valid @RequestBody LoginRequest request) {
+
+        AuthResponse response = authService.login(
+                request.email(),
+                request.password()
+        );
+
+        return ResponseEntity.ok(response);
     }
 }
