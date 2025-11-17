@@ -1,15 +1,16 @@
 package com.chep.demo.todo.controller.auth;
 
+import com.chep.demo.todo.domain.user.User;
 import com.chep.demo.todo.dto.auth.AuthResponse;
 import com.chep.demo.todo.dto.auth.LoginRequest;
+import com.chep.demo.todo.dto.auth.RefreshRequest;
 import com.chep.demo.todo.dto.auth.RegisterRequest;
 import com.chep.demo.todo.service.auth.AuthService;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -41,6 +42,38 @@ public class AuthController {
                 request.email(),
                 request.password()
         );
+
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<AuthResponse> getMyInfo() {
+        // 1. 토큰에서 userId 꺼내기
+        Long userId = (Long) SecurityContextHolder.getContext()
+                .getAuthentication()
+                .getPrincipal();
+
+        // 2. DB에서 유저 조회
+        User user = authService.getUserById(userId);
+
+        // 3. 응답
+        AuthResponse response = new AuthResponse(
+                user.getId(),
+                user.getName(),
+                user.getEmail(),
+                null,
+                null
+        );
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<AuthResponse> refreshToken(
+            @Valid @RequestBody RefreshRequest request
+            ) {
+
+        AuthResponse response  = authService.refresh(request.refreshToken());
 
         return ResponseEntity.ok(response);
     }

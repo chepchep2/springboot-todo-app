@@ -39,13 +39,15 @@ public class AuthService {
         user.setPassword(encodedPassword);
 
         User saved = userRepository.save(user);
-        String token = jwtTokenProvider.generateToken(saved);
+        String accessToken = jwtTokenProvider.generateAccessToken(saved.getId());
+        String refreshToken = jwtTokenProvider.generateRefreshToken(saved.getId());
 
         return new AuthResponse(
                 saved.getId(),
                 saved.getName(),
                 saved.getEmail(),
-                token
+                accessToken,
+                refreshToken
         );
     }
 
@@ -60,14 +62,45 @@ public class AuthService {
         }
 
         // 3. JWT 토큰 생성
-        String token = jwtTokenProvider.generateToken(user);
+        String accessToken = jwtTokenProvider.generateAccessToken(user.getId());
+        String refreshToken = jwtTokenProvider.generateRefreshToken(user.getId());
 
         // 4. AuthResponse 반환
         return new AuthResponse(
                 user.getId(),
                 user.getName(),
                 user.getEmail(),
-                token
+                accessToken,
+                refreshToken
+        );
+    }
+
+    public User getUserById(Long userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new AuthenticationException("User not found"));
+    }
+
+    public AuthResponse refresh(String refreshToken) {
+        // 1. refreshToken 검증
+        if (!jwtTokenProvider.validateToken(refreshToken)) {
+            throw new AuthenticationException("Invalid refresh token");
+        }
+
+        // 2. userId 추출
+        Long userId = jwtTokenProvider.getUserIdFromToken(refreshToken);
+
+        // 3. 유저 조회
+        User user = getUserById(userId);
+
+        // 4. 새 accessToken 발급
+        String newAccessToken = jwtTokenProvider.generateAccessToken(user.getId());
+
+        return new AuthResponse(
+                user.getId(),
+                user.getName(),
+                user.getEmail(),
+                newAccessToken,
+                refreshToken
         );
     }
 }
