@@ -1,6 +1,7 @@
 package com.chep.demo.todo.dto.todo;
 
 import java.time.Instant;
+import java.util.List;
 
 public record TodoResponse(
         Long id,
@@ -8,6 +9,7 @@ public record TodoResponse(
         String content,
         boolean completed,
         Integer orderIndex,
-        Instant dueDate
+        Instant dueDate,
+        List<Long> assigneeIds
 ) {
 }
