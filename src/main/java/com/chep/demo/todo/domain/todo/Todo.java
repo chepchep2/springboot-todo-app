@@ -7,6 +7,8 @@ import jakarta.validation.constraints.Size;
 import org.hibernate.annotations.ColumnDefault;
 
 import java.time.Instant;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "todos")
@@ -49,6 +51,18 @@ public class Todo {
 
     @Column(name = "due_date")
     private Instant dueDate;
+
+    @ManyToMany
+    @JoinTable(name = "todo_assignees", joinColumns = @JoinColumn(name = "todo_id"), inverseJoinColumns = @JoinColumn(name = "user_id"))
+    private Set<User> assignees = new HashSet<>();
+
+    public Set<User> getAssignees() {
+        return assignees;
+    }
+
+    public void setAssignees(Set<User> assignees) {
+        this.assignees = assignees;
+    }
 
     public Instant getDueDate() {
         return dueDate;
