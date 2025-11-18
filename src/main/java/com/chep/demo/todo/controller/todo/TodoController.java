@@ -1,14 +1,19 @@
 package com.chep.demo.todo.controller.todo;
 
-import com.chep.demo.todo.dto.todo.CreateTodoRequest;
-import com.chep.demo.todo.dto.todo.UpdateTodoRequest;
-import com.chep.demo.todo.exception.todo.TodoNotFoundException;
 import com.chep.demo.todo.domain.todo.Todo;
 import com.chep.demo.todo.domain.todo.TodoRepository;
+import com.chep.demo.todo.domain.user.User;
+import com.chep.demo.todo.dto.todo.CreateTodoRequest;
+import com.chep.demo.todo.dto.todo.MoveTodoRequest;
+import com.chep.demo.todo.dto.todo.TodoResponse;
+import com.chep.demo.todo.dto.todo.UpdateTodoRequest;
+import com.chep.demo.todo.exception.todo.TodoNotFoundException;
+import com.chep.demo.todo.service.auth.AuthService;
+import com.chep.demo.todo.service.todo.TodoService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.time.Instant;
 import java.util.List;
@@ -16,73 +21,63 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/todos")
 public class TodoController {
-    private final TodoRepository todoRepository;
+    private final TodoService todoService;
 
-    public TodoController(TodoRepository todoRepository) {
-        this.todoRepository = todoRepository;
+    public TodoController(TodoService todoService) {
+        this.todoService = todoService;
+    }
+
+    private Long currentUserId() {
+        return (Long) SecurityContextHolder.getContext()
+                .getAuthentication()
+                .getPrincipal();
     }
 
     @GetMapping
-    List<Todo> getTodos() {
-        return todoRepository.findAll();
+    List<TodoResponse> getTodos() {
+        Long userId = currentUserId();
+
+        return todoService.getTodos(userId);
     }
 
     @PostMapping
-    ResponseEntity<Void> createTodo(
-            @Valid @RequestBody CreateTodoRequest request) {
-        var todo = new Todo();
-        todo.setTitle(request.title());
-        todo.setContent(request.content());
-        todo.setCompleted(false);
-        todo.setCreatedAt(Instant.now());
+    ResponseEntity<TodoResponse> createTodo(@Valid @RequestBody CreateTodoRequest request) {
+        Long userId = currentUserId();
 
-        var saveTodo = todoRepository.save(todo);
-
-        var url = ServletUriComponentsBuilder
-                .fromCurrentRequest()
-                .path("/{id}")
-                .build(saveTodo.getId());
-
-        return ResponseEntity.created(url).build();
+        return ResponseEntity.ok(todoService.createTodo(userId, request));
     }
 
     @PutMapping("/{id}")
-    ResponseEntity<Void> updateTodo(
+    ResponseEntity<TodoResponse> updateTodo(
             @PathVariable Long id,
             @Valid @RequestBody UpdateTodoRequest request
     ) {
-        var todo = todoRepository.findById(id)
-                .orElseThrow(() -> new TodoNotFoundException("Todo not found"));
-        todo.setTitle(request.title());
-        todo.setContent(request.content());
-        todo.setUpdatedAt(Instant.now());
-        todoRepository.save(todo);
+        Long userId = currentUserId();
 
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(todoService.updateTodo(userId, id, request));
     }
 
     @DeleteMapping("/{id}")
     void deleteTodo(@PathVariable Long id) {
-        var todo = todoRepository.findById(id).orElseThrow(() -> new TodoNotFoundException("Todo not found"));
-        todoRepository.delete(todo);
-    }
+        Long userId = currentUserId();
 
-    @ExceptionHandler(TodoNotFoundException.class)
-    ResponseEntity<Void> handle(TodoNotFoundException e) {
-        return ResponseEntity.notFound().build();
+        todoService.deleteTodo(userId, id);
     }
 
     @PatchMapping("/{id}/toggle")
-    ResponseEntity<Void> toggleTodoComplete(@PathVariable Long id) {
-        var todo = todoRepository.findById(id)
-                .orElseThrow(() -> new TodoNotFoundException("Todo not found"));
+    void toggleTodoComplete(@PathVariable Long id) {
+        Long userId = currentUserId();
 
-        todo.setCompleted(!todo.isCompleted());
-        todo.setUpdatedAt(Instant.now());
-        todoRepository.save(todo);
-
-        return ResponseEntity.ok().build();
+        todoService.toggleTodoComplete(userId, id);
     }
 
+    @PatchMapping("/{id}/move")
+    void moveTodo(
+            @PathVariable Long id,
+            @Valid @RequestBody MoveTodoRequest request
+    ) {
+        Long userId = currentUserId();
 
+        todoService.move(userId, id, request);
+    }
 }
