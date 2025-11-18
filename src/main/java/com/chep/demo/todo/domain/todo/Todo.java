@@ -47,6 +47,17 @@ public class Todo {
     @Column(name = "order_index", nullable = false)
     private Integer orderIndex;
 
+    @Column(name = "due_date")
+    private Instant dueDate;
+
+    public Instant getDueDate() {
+        return dueDate;
+    }
+
+    public void setDueDate(Instant dueDate) {
+        this.dueDate = dueDate;
+    }
+
     public Integer getOrderIndex() {
         return orderIndex;
     }

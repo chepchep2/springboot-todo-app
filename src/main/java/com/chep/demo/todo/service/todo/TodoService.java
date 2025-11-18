@@ -36,7 +36,8 @@ public class TodoService {
                         todo.getTitle(),
                         todo.getContent(),
                         todo.isCompleted(),
-                        todo.getOrderIndex()
+                        todo.getOrderIndex(),
+                        todo.getDueDate()
                 )).toList();
     }
 
@@ -62,7 +63,8 @@ public class TodoService {
                 saved.getTitle(),
                 saved.getContent(),
                 saved.isCompleted(),
-                saved.getOrderIndex()
+                saved.getOrderIndex(),
+                saved.getDueDate()
         );
     }
 
@@ -87,7 +89,8 @@ public class TodoService {
                 updatedTodo.getTitle(),
                 updatedTodo.getContent(),
                 updatedTodo.isCompleted(),
-                updatedTodo.getOrderIndex()
+                updatedTodo.getOrderIndex(),
+                updatedTodo.getDueDate()
         );
     }
 
