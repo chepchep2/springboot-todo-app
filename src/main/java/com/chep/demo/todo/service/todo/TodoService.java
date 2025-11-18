@@ -3,28 +3,34 @@ package com.chep.demo.todo.service.todo;
 import com.chep.demo.todo.domain.todo.Todo;
 import com.chep.demo.todo.domain.todo.TodoRepository;
 import com.chep.demo.todo.domain.user.User;
+import com.chep.demo.todo.domain.user.UserRepository;
 import com.chep.demo.todo.dto.todo.CreateTodoRequest;
 import com.chep.demo.todo.dto.todo.MoveTodoRequest;
 import com.chep.demo.todo.dto.todo.TodoResponse;
+import com.chep.demo.todo.dto.todo.UpdateAssigneesRequest;
 import com.chep.demo.todo.dto.todo.UpdateTodoRequest;
 import com.chep.demo.todo.exception.todo.TodoNotFoundException;
 import com.chep.demo.todo.service.auth.AuthService;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.PatchMapping;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
+import java.util.HashSet;
 
 @Service
 @Transactional
 public class TodoService {
     private final TodoRepository todoRepository;
     private final AuthService authService;
+    private final UserRepository userRepository;
 
-    public TodoService(TodoRepository todoRepository, AuthService authService) {
+    public TodoService(TodoRepository todoRepository, AuthService authService, UserRepository userRepository) {
         this.todoRepository = todoRepository;
         this.authService = authService;
+        this.userRepository = userRepository;
     }
 
     @Transactional(readOnly = true)
@@ -37,7 +43,8 @@ public class TodoService {
                         todo.getContent(),
                         todo.isCompleted(),
                         todo.getOrderIndex(),
-                        todo.getDueDate()
+                        todo.getDueDate(),
+                        assigneeIds(todo)
                 )).toList();
     }
 
@@ -49,6 +56,8 @@ public class TodoService {
             orderIndex = todoRepository.countByUserId(userId).intValue();
         }
 
+        Set<User> assignees = resolveAssignees(request.assigneeIds());
+
         Todo todo = new Todo();
         todo.setTitle(request.title());
         todo.setContent(request.content());
@@ -56,6 +65,8 @@ public class TodoService {
         todo.setCreatedAt(Instant.now());
         todo.setOrderIndex(orderIndex);
         todo.setUser(user);
+        todo.setDueDate(request.dueDate());
+        todo.setAssignees(assignees);
 
         Todo saved = todoRepository.save(todo);
 
@@ -64,8 +75,28 @@ public class TodoService {
                 saved.getContent(),
                 saved.isCompleted(),
                 saved.getOrderIndex(),
-                saved.getDueDate()
+                saved.getDueDate(),
+                assigneeIds(saved)
         );
+    }
+
+    private Set<User> resolveAssignees(List<Long> assigneeIds) {
+        if (assigneeIds == null || assigneeIds.isEmpty()) {
+            return new HashSet<>();
+        }
+
+        List<User> users = userRepository.findAllById(assigneeIds);
+        if (users.size() != new HashSet<>(assigneeIds).size()) {
+            throw new IllegalArgumentException("Invalid assignee id provided");
+        }
+        return new HashSet<>(users);
+    }
+
+    private List<Long> assigneeIds(Todo todo) {
+        return todo.getAssignees()
+                .stream()
+                .map(user -> user.getId())
+                .toList();
     }
 
     public TodoResponse updateTodo(Long userId, Long todoId, UpdateTodoRequest request) {
@@ -82,6 +113,8 @@ public class TodoService {
             todo.setOrderIndex(request.orderIndex());
         }
 
+        todo.setDueDate(request.dueDate());
+
         Todo updatedTodo = todoRepository.save(todo);
 
         return new TodoResponse(
@@ -90,7 +123,8 @@ public class TodoService {
                 updatedTodo.getContent(),
                 updatedTodo.isCompleted(),
                 updatedTodo.getOrderIndex(),
-                updatedTodo.getDueDate()
+                updatedTodo.getDueDate(),
+                assigneeIds(updatedTodo)
         );
     }
 
@@ -150,5 +184,23 @@ public class TodoService {
         todoRepository.saveAll(affectedTodos);
         todo.setOrderIndex(targetOrderIndex);
         todoRepository.save(todo);
+    }
+
+    public TodoResponse updateAssignees(Long userId, Long todoId, UpdateAssigneesRequest request) {
+        Todo todo = todoRepository.findByIdAndUserId(todoId, userId)
+                .orElseThrow(() -> new TodoNotFoundException("Todo not found"));
+
+        todo.setAssignees(resolveAssignees(request.assigneeIds()));
+        Todo updated = todoRepository.save(todo);
+
+        return new TodoResponse(
+                updated.getId(),
+                updated.getTitle(),
+                updated.getContent(),
+                updated.isCompleted(),
+                updated.getOrderIndex(),
+                updated.getDueDate(),
+                assigneeIds(updated)
+        );
     }
 }

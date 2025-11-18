@@ -6,6 +6,7 @@ import com.chep.demo.todo.domain.user.User;
 import com.chep.demo.todo.dto.todo.CreateTodoRequest;
 import com.chep.demo.todo.dto.todo.MoveTodoRequest;
 import com.chep.demo.todo.dto.todo.TodoResponse;
+import com.chep.demo.todo.dto.todo.UpdateAssigneesRequest;
 import com.chep.demo.todo.dto.todo.UpdateTodoRequest;
 import com.chep.demo.todo.exception.todo.TodoNotFoundException;
 import com.chep.demo.todo.service.auth.AuthService;
@@ -79,5 +80,15 @@ public class TodoController {
         Long userId = currentUserId();
 
         todoService.move(userId, id, request);
+    }
+
+    @PatchMapping("/{id}/assignees")
+    ResponseEntity<TodoResponse> updateAssignees(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateAssigneesRequest request
+    ) {
+        Long userId = currentUserId();
+
+        return ResponseEntity.ok(todoService.updateAssignees(userId, id, request));
     }
 }
