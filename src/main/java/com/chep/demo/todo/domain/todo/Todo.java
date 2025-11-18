@@ -43,6 +43,18 @@ public class Todo {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
+    @NotNull
+    @Column(name = "order_index", nullable = false)
+    private Integer orderIndex;
+
+    public Integer getOrderIndex() {
+        return orderIndex;
+    }
+
+    public void setOrderIndex(Integer orderIndex) {
+        this.orderIndex = orderIndex;
+    }
+
     public Long getId() {
         return id;
     }
