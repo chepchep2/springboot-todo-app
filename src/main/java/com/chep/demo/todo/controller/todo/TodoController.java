@@ -3,11 +3,7 @@ package com.chep.demo.todo.controller.todo;
 import com.chep.demo.todo.domain.todo.Todo;
 import com.chep.demo.todo.domain.todo.TodoRepository;
 import com.chep.demo.todo.domain.user.User;
-import com.chep.demo.todo.dto.todo.CreateTodoRequest;
-import com.chep.demo.todo.dto.todo.MoveTodoRequest;
-import com.chep.demo.todo.dto.todo.TodoResponse;
-import com.chep.demo.todo.dto.todo.UpdateAssigneesRequest;
-import com.chep.demo.todo.dto.todo.UpdateTodoRequest;
+import com.chep.demo.todo.dto.todo.*;
 import com.chep.demo.todo.exception.todo.TodoNotFoundException;
 import com.chep.demo.todo.service.auth.AuthService;
 import com.chep.demo.todo.service.todo.TodoService;
@@ -90,5 +86,15 @@ public class TodoController {
         Long userId = currentUserId();
 
         return ResponseEntity.ok(todoService.updateAssignees(userId, id, request));
+    }
+
+    @PatchMapping("/{id}/due-date")
+    ResponseEntity<TodoResponse> updateDueDate(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateDueDateRequest request
+    ) {
+        Long userId = currentUserId();
+
+        return ResponseEntity.ok(todoService.updateDueDate(userId, id, request));
     }
 }
