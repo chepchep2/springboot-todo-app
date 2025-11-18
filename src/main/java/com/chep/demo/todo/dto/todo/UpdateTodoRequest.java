@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotEmpty;
 public record UpdateTodoRequest(
         @NotEmpty(message = "Title is required")
         String title,
-        String content
+        String content,
+        Integer orderIndex
 ) {
 }
