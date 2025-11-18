@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import org.hibernate.annotations.ColumnDefault;
+import org.hibernate.annotations.Where;
 
 import java.time.Instant;
 import java.util.HashSet;
@@ -12,6 +13,7 @@ import java.util.Set;
 
 @Entity
 @Table(name = "todos")
+@Where(clause = "deleted_at IS NULL")
 public class Todo {
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "todos_id_gen")
@@ -55,6 +57,17 @@ public class Todo {
     @ManyToMany
     @JoinTable(name = "todo_assignees", joinColumns = @JoinColumn(name = "todo_id"), inverseJoinColumns = @JoinColumn(name = "user_id"))
     private Set<User> assignees = new HashSet<>();
+
+    @Column(name = "deleted_at")
+    private Instant deletedAt;
+
+    public Instant getDeletedAt() {
+        return deletedAt;
+    }
+
+    public void setDeletedAt(Instant deletedAt) {
+        this.deletedAt = deletedAt;
+    }
 
     public Set<User> getAssignees() {
         return assignees;

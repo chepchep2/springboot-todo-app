@@ -129,7 +129,9 @@ public class TodoService {
     public void deleteTodo(Long userId, Long todoId) {
         Todo todo = todoRepository.findByIdAndUserId(todoId, userId)
                 .orElseThrow(() -> new TodoNotFoundException("Todo not found"));
-        todoRepository.delete(todo);
+
+        todo.setDeletedAt(Instant.now());
+        todoRepository.save(todo);
     }
 
     public void toggleTodoComplete(Long userId, Long todoId) {
