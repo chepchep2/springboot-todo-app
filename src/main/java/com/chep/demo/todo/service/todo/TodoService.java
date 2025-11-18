@@ -8,12 +8,12 @@ import com.chep.demo.todo.dto.todo.CreateTodoRequest;
 import com.chep.demo.todo.dto.todo.MoveTodoRequest;
 import com.chep.demo.todo.dto.todo.TodoResponse;
 import com.chep.demo.todo.dto.todo.UpdateAssigneesRequest;
+import com.chep.demo.todo.dto.todo.UpdateDueDateRequest;
 import com.chep.demo.todo.dto.todo.UpdateTodoRequest;
 import com.chep.demo.todo.exception.todo.TodoNotFoundException;
 import com.chep.demo.todo.service.auth.AuthService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.bind.annotation.PatchMapping;
 
 import java.time.Instant;
 import java.util.List;
@@ -113,8 +113,6 @@ public class TodoService {
             todo.setOrderIndex(request.orderIndex());
         }
 
-        todo.setDueDate(request.dueDate());
-
         Todo updatedTodo = todoRepository.save(todo);
 
         return new TodoResponse(
@@ -191,6 +189,24 @@ public class TodoService {
                 .orElseThrow(() -> new TodoNotFoundException("Todo not found"));
 
         todo.setAssignees(resolveAssignees(request.assigneeIds()));
+        Todo updated = todoRepository.save(todo);
+
+        return new TodoResponse(
+                updated.getId(),
+                updated.getTitle(),
+                updated.getContent(),
+                updated.isCompleted(),
+                updated.getOrderIndex(),
+                updated.getDueDate(),
+                assigneeIds(updated)
+        );
+    }
+
+    public TodoResponse updateDueDate(Long userId, Long todoId, UpdateDueDateRequest request) {
+        Todo todo = todoRepository.findByIdAndUserId(todoId, userId)
+                .orElseThrow(() -> new TodoNotFoundException("Todo not found"));
+
+        todo.setDueDate((request.dueDate()));
         Todo updated = todoRepository.save(todo);
 
         return new TodoResponse(
