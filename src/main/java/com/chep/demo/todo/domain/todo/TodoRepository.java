@@ -10,4 +10,9 @@ public interface TodoRepository extends JpaRepository<Todo, Long> {
     Optional<Todo> findByIdAndUserId(Long id, Long userId);
     Long countByUserId(Long userId);
     List<Todo> findByUserIdAndOrderIndexBetween(Long userId, int start, int end);
+
+    default void softDelete(Todo todo) {
+        todo.markDeleted();
+        save(todo);
+    }
 }

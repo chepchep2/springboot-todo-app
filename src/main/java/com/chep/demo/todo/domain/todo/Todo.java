@@ -55,7 +55,11 @@ public class Todo {
     private Instant dueDate;
 
     @ManyToMany
-    @JoinTable(name = "todo_assignees", joinColumns = @JoinColumn(name = "todo_id"), inverseJoinColumns = @JoinColumn(name = "user_id"))
+    @JoinTable(
+            name = "todo_assignees",
+            joinColumns = @JoinColumn(name = "todo_id"),
+            inverseJoinColumns = @JoinColumn(name = "user_id")
+    )
     private Set<User> assignees = new HashSet<>();
 
     @Column(name = "deleted_at")
@@ -65,64 +69,32 @@ public class Todo {
         return deletedAt;
     }
 
-    public void setDeletedAt(Instant deletedAt) {
-        this.deletedAt = deletedAt;
-    }
-
     public Set<User> getAssignees() {
         return assignees;
-    }
-
-    public void setAssignees(Set<User> assignees) {
-        this.assignees = assignees;
     }
 
     public Instant getDueDate() {
         return dueDate;
     }
 
-    public void setDueDate(Instant dueDate) {
-        this.dueDate = dueDate;
-    }
-
     public Integer getOrderIndex() {
         return orderIndex;
-    }
-
-    public void setOrderIndex(Integer orderIndex) {
-        this.orderIndex = orderIndex;
     }
 
     public Long getId() {
         return id;
     }
 
-    public void setId(Long id) {
-        this.id = id;
-    }
-
     public String getTitle() {
         return title;
-    }
-
-    public void setTitle(String title) {
-        this.title = title;
     }
 
     public String getContent() {
         return content;
     }
 
-    public void setContent(String content) {
-        this.content = content;
-    }
-
     public boolean isCompleted() {
         return completed;
-    }
-
-    public void setCompleted(boolean completed) {
-        this.completed = completed;
     }
 
     public Instant getCreatedAt() {
@@ -137,15 +109,68 @@ public class Todo {
         return updatedAt;
     }
 
-    public void setUpdatedAt(Instant updatedAt) {
-        this.updatedAt = updatedAt;
-    }
-
     public User getUser() {
         return user;
     }
 
     public void setUser(User user) {
         this.user = user;
+    }
+
+    public void toggleComplete() {
+        this.completed = !this.completed;
+        this.updatedAt = Instant.now();
+    }
+
+    public void changeAssignees(Set<User> assignees) {
+        this.assignees.clear();
+
+        if (assignees == null) {
+            return;
+        }
+
+        this.assignees.addAll(assignees);
+        this.updatedAt = Instant.now();
+    }
+
+    public void changeTitleAndContent(String title, String content) {
+        this.title = title;
+        this.content = content;
+        this.updatedAt = Instant.now();
+    }
+
+    public void changeOrderIndex(Integer orderIndex) {
+        if (orderIndex < 0) {
+            throw new IllegalArgumentException("orderIndex must be more 0");
+        }
+
+        this.orderIndex = orderIndex;
+        this.updatedAt = Instant.now();
+    }
+
+    public void changeDueDate(Instant dueDate) {
+        this.dueDate = dueDate;
+        this.updatedAt = Instant.now();
+    }
+
+    public void markDeleted() {
+        this.deletedAt = Instant.now();
+    }
+
+    public static Todo create(User user, String title, String content, Integer orderIndex, Instant dueDate, Set<User> assignees) {
+        Todo todo = new Todo();
+        todo.user = user;
+        todo.title = title;
+        todo.content = content;
+        todo.orderIndex = orderIndex;
+        todo.dueDate = dueDate;
+        todo.completed = false;
+        todo.createdAt = Instant.now();
+
+        if (assignees != null) {
+            todo.changeAssignees(assignees);
+        }
+
+        return todo;
     }
 }

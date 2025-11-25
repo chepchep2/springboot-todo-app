@@ -58,15 +58,14 @@ public class TodoService {
 
         Set<User> assignees = resolveAssignees(request.assigneeIds());
 
-        Todo todo = new Todo();
-        todo.setTitle(request.title());
-        todo.setContent(request.content());
-        todo.setCompleted(false);
-        todo.setCreatedAt(Instant.now());
-        todo.setOrderIndex(orderIndex);
-        todo.setUser(user);
-        todo.setDueDate(request.dueDate());
-        todo.setAssignees(assignees);
+        Todo todo = Todo.create(
+                user,
+                request.title(),
+                request.content(),
+                orderIndex,
+                request.dueDate(),
+                assignees
+        );
 
         Todo saved = todoRepository.save(todo);
 
@@ -104,13 +103,11 @@ public class TodoService {
 
         Todo todo = todoRepository.findByIdAndUserId(todoId, userId)
                 .orElseThrow(() -> new TodoNotFoundException("Todo not found"));
-        todo.setTitle(request.title());
-        todo.setContent(request.content());
-        todo.setUpdatedAt(Instant.now());
-        todo.setUser(user);
+
+        todo.changeTitleAndContent(request.title(), request.content());
 
         if (request.orderIndex() != null) {
-            todo.setOrderIndex(request.orderIndex());
+            todo.changeOrderIndex(request.orderIndex());
         }
 
         Todo updatedTodo = todoRepository.save(todo);
@@ -130,15 +127,14 @@ public class TodoService {
         Todo todo = todoRepository.findByIdAndUserId(todoId, userId)
                 .orElseThrow(() -> new TodoNotFoundException("Todo not found"));
 
-        todo.setDeletedAt(Instant.now());
-        todoRepository.save(todo);
+        todoRepository.softDelete(todo);
     }
 
     public void toggleTodoComplete(Long userId, Long todoId) {
         Todo todo = todoRepository.findByIdAndUserId(todoId, userId)
                 .orElseThrow(() -> new TodoNotFoundException("Todo not found"));
-        todo.setCompleted(!todo.isCompleted());
-        todo.setUpdatedAt(Instant.now());
+        todo.toggleComplete();
+
         todoRepository.save(todo);
     }
 
@@ -149,40 +145,37 @@ public class TodoService {
         Integer targetOrderIndex = request.targetOrderIndex();
         Integer currentOrderIndex = todo.getOrderIndex();
 
-        if (targetOrderIndex < 0) {
-            throw new IllegalArgumentException("targetOrderIndex mut be more 0");
-        }
-
         if (targetOrderIndex.equals(currentOrderIndex)) {
             return;
         }
 
-        List<Todo> affectedTodos;
+        int start;
+        int end;
+        int delta;
 
         if (targetOrderIndex < currentOrderIndex) {
-            affectedTodos = todoRepository.findByUserIdAndOrderIndexBetween(
-                    userId,
-                    targetOrderIndex,
-                    currentOrderIndex -1
-            );
-
-            for (Todo affected: affectedTodos) {
-                affected.setOrderIndex(affected.getOrderIndex() + 1);
-            }
+            start = targetOrderIndex;
+            end = currentOrderIndex - 1;
+            delta = 1;
         } else {
-            affectedTodos = todoRepository.findByUserIdAndOrderIndexBetween(
-                    userId,
-                    currentOrderIndex + 1,
-                    targetOrderIndex
-            );
-
-            for (Todo affected: affectedTodos) {
-                affected.setOrderIndex(affected.getOrderIndex() - 1);
-            }
+            start = currentOrderIndex + 1;
+            end = targetOrderIndex;
+            delta = -1;
         }
 
+        List<Todo> affectedTodos = todoRepository.findByUserIdAndOrderIndexBetween(
+                userId,
+                start,
+                end
+        );
+
+        for (Todo affected : affectedTodos) {
+            affected.changeOrderIndex(affected.getOrderIndex() + delta);
+        }
+
+        todo.changeOrderIndex(targetOrderIndex);
+
         todoRepository.saveAll(affectedTodos);
-        todo.setOrderIndex(targetOrderIndex);
         todoRepository.save(todo);
     }
 
@@ -190,7 +183,7 @@ public class TodoService {
         Todo todo = todoRepository.findByIdAndUserId(todoId, userId)
                 .orElseThrow(() -> new TodoNotFoundException("Todo not found"));
 
-        todo.setAssignees(resolveAssignees(request.assigneeIds()));
+        todo.changeAssignees(resolveAssignees(request.assigneeIds()));
         Todo updated = todoRepository.save(todo);
 
         return new TodoResponse(
@@ -208,7 +201,7 @@ public class TodoService {
         Todo todo = todoRepository.findByIdAndUserId(todoId, userId)
                 .orElseThrow(() -> new TodoNotFoundException("Todo not found"));
 
-        todo.setDueDate((request.dueDate()));
+        todo.changeDueDate((request.dueDate()));
         Todo updated = todoRepository.save(todo);
 
         return new TodoResponse(
