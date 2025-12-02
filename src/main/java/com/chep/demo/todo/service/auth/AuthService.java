@@ -2,7 +2,6 @@ package com.chep.demo.todo.service.auth;
 
 import com.chep.demo.todo.domain.user.User;
 import com.chep.demo.todo.domain.user.UserRepository;
-import com.chep.demo.todo.dto.auth.AuthResponse;
 import com.chep.demo.todo.exception.auth.AuthenticationException;
 import com.chep.demo.todo.security.JwtTokenProvider;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -23,7 +22,7 @@ public class AuthService {
     }
 
     @Transactional
-    public AuthResponse register(String email, String password, String name) {
+    public AuthResult register(String email, String password, String name) {
         // 이메일 중복 체크
         if (userRepository.existsByEmail(email)) {
             throw new IllegalArgumentException("This email address is already registered.");
@@ -33,25 +32,16 @@ public class AuthService {
         String encodedPassword = passwordEncoder.encode(password);
 
         // user 생성
-        User user = new User();
-        user.setEmail(email);
-        user.setName(name);
-        user.setPassword(encodedPassword);
+        User user = User.create(name, email, encodedPassword);
 
         User saved = userRepository.save(user);
         String accessToken = jwtTokenProvider.generateAccessToken(saved.getId());
         String refreshToken = jwtTokenProvider.generateRefreshToken(saved.getId());
 
-        return new AuthResponse(
-                saved.getId(),
-                saved.getName(),
-                saved.getEmail(),
-                accessToken,
-                refreshToken
-        );
+        return new AuthResult(user, accessToken, refreshToken);
     }
 
-    public AuthResponse login(String email, String rawPassword) {
+    public AuthResult login(String email, String rawPassword) {
         // 1. 이메일로 유저 조회
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new AuthenticationException("Invalid email or password."));
@@ -65,14 +55,9 @@ public class AuthService {
         String accessToken = jwtTokenProvider.generateAccessToken(user.getId());
         String refreshToken = jwtTokenProvider.generateRefreshToken(user.getId());
 
-        // 4. AuthResponse 반환
-        return new AuthResponse(
-                user.getId(),
-                user.getName(),
-                user.getEmail(),
-                accessToken,
-                refreshToken
-        );
+        // 4. AuthResult 반환
+        return new AuthResult(user, accessToken, refreshToken);
+
     }
 
     public User getUserById(Long userId) {
@@ -80,7 +65,7 @@ public class AuthService {
                 .orElseThrow(() -> new AuthenticationException("User not found"));
     }
 
-    public AuthResponse refresh(String refreshToken) {
+    public AuthResult refresh(String refreshToken) {
         // 1. refreshToken 검증
         if (!jwtTokenProvider.validateToken(refreshToken)) {
             throw new AuthenticationException("Invalid refresh token");
@@ -95,12 +80,6 @@ public class AuthService {
         // 4. 새 accessToken 발급
         String newAccessToken = jwtTokenProvider.generateAccessToken(user.getId());
 
-        return new AuthResponse(
-                user.getId(),
-                user.getName(),
-                user.getEmail(),
-                newAccessToken,
-                refreshToken
-        );
+        return new AuthResult(user, newAccessToken, refreshToken);
     }
 }

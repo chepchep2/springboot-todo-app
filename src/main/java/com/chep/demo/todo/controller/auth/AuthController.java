@@ -5,6 +5,7 @@ import com.chep.demo.todo.dto.auth.AuthResponse;
 import com.chep.demo.todo.dto.auth.LoginRequest;
 import com.chep.demo.todo.dto.auth.RefreshRequest;
 import com.chep.demo.todo.dto.auth.RegisterRequest;
+import com.chep.demo.todo.service.auth.AuthResult;
 import com.chep.demo.todo.service.auth.AuthService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -25,25 +26,25 @@ public class AuthController {
     ResponseEntity<AuthResponse> registerUser(
             @Valid @RequestBody RegisterRequest request) {
 
-        AuthResponse response = authService.register(
+        AuthResult result = authService.register(
                 request.email(),
                 request.password(),
                 request.name()
         );
 
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(toResponse(result));
     }
 
     @PostMapping("/login")
     ResponseEntity<AuthResponse> loginUser(
             @Valid @RequestBody LoginRequest request) {
 
-        AuthResponse response = authService.login(
+        AuthResult result = authService.login(
                 request.email(),
                 request.password()
         );
 
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(toResponse(result));
     }
 
     @GetMapping("/me")
@@ -73,8 +74,20 @@ public class AuthController {
             @Valid @RequestBody RefreshRequest request
             ) {
 
-        AuthResponse response  = authService.refresh(request.refreshToken());
+        AuthResult result  = authService.refresh(request.refreshToken());
 
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(toResponse(result));
+    }
+
+    private AuthResponse toResponse(AuthResult result) {
+        User user = result.getUser();
+
+        return new AuthResponse(
+                user.getId(),
+                user.getName(),
+                user.getEmail(),
+                result.getAccessToken(),
+                result.getRefreshToken()
+        );
     }
 }
