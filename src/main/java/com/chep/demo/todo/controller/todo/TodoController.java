@@ -1,18 +1,14 @@
 package com.chep.demo.todo.controller.todo;
 
 import com.chep.demo.todo.domain.todo.Todo;
-import com.chep.demo.todo.domain.todo.TodoRepository;
 import com.chep.demo.todo.domain.user.User;
 import com.chep.demo.todo.dto.todo.*;
-import com.chep.demo.todo.exception.todo.TodoNotFoundException;
-import com.chep.demo.todo.service.auth.AuthService;
 import com.chep.demo.todo.service.todo.TodoService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.Instant;
 import java.util.List;
 
 @RestController
@@ -34,14 +30,18 @@ public class TodoController {
     List<TodoResponse> getTodos() {
         Long userId = currentUserId();
 
-        return todoService.getTodos(userId);
+        return todoService.getTodos(userId)
+                .stream()
+                .map(this::toResponse)
+                .toList();
     }
 
     @PostMapping
     ResponseEntity<TodoResponse> createTodo(@Valid @RequestBody CreateTodoRequest request) {
         Long userId = currentUserId();
 
-        return ResponseEntity.ok(todoService.createTodo(userId, request));
+        Todo created = todoService.createTodo(userId, request);
+        return ResponseEntity.ok(toResponse(created));
     }
 
     @PutMapping("/{id}")
@@ -51,7 +51,8 @@ public class TodoController {
     ) {
         Long userId = currentUserId();
 
-        return ResponseEntity.ok(todoService.updateTodo(userId, id, request));
+        Todo updated = todoService.updateTodo(userId, id, request);
+        return ResponseEntity.ok(toResponse(updated));
     }
 
     @DeleteMapping("/{id}")
@@ -84,8 +85,8 @@ public class TodoController {
             @Valid @RequestBody UpdateAssigneesRequest request
     ) {
         Long userId = currentUserId();
-
-        return ResponseEntity.ok(todoService.updateAssignees(userId, id, request));
+        Todo updated = todoService.updateAssignees(userId, id, request);
+        return ResponseEntity.ok(toResponse(updated));
     }
 
     @PatchMapping("/{id}/due-date")
@@ -94,7 +95,21 @@ public class TodoController {
             @Valid @RequestBody UpdateDueDateRequest request
     ) {
         Long userId = currentUserId();
+        Todo updated = todoService.updateDueDate(userId, id, request);
+        return ResponseEntity.ok(toResponse(updated));
+    }
 
-        return ResponseEntity.ok(todoService.updateDueDate(userId, id, request));
+    private TodoResponse toResponse(Todo todo) {
+        return new TodoResponse(
+                todo.getId(),
+                todo.getTitle(),
+                todo.getContent(),
+                todo.isCompleted(),
+                todo.getOrderIndex(),
+                todo.getDueDate(),
+                todo.getAssignees().stream()
+                        .map(User::getId)
+                        .toList()
+        );
     }
 }
