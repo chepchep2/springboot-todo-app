@@ -8,10 +8,12 @@ import com.chep.demo.todo.dto.auth.RegisterRequest;
 import com.chep.demo.todo.service.auth.AuthResult;
 import com.chep.demo.todo.service.auth.AuthService;
 import jakarta.validation.Valid;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+
+import java.net.URI;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -32,7 +34,13 @@ public class AuthController {
                 request.name()
         );
 
-        return ResponseEntity.ok(toResponse(result));
+        URI location = ServletUriComponentsBuilder
+                .fromCurrentRequest()
+                .replacePath("/api/auth/me")
+                .build()
+                .toUri();
+
+        return ResponseEntity.created(location).body(toResponse(result));
     }
 
     @PostMapping("/login")

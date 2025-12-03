@@ -8,7 +8,9 @@ import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import java.net.URI;
 import java.util.List;
 
 @RestController
@@ -27,13 +29,15 @@ public class TodoController {
     }
 
     @GetMapping
-    List<TodoResponse> getTodos() {
+    ResponseEntity<List<TodoResponse>> getTodos() {
         Long userId = currentUserId();
 
-        return todoService.getTodos(userId)
+        List<TodoResponse> responses = todoService.getTodos(userId)
                 .stream()
                 .map(this::toResponse)
                 .toList();
+
+        return ResponseEntity.ok(responses);
     }
 
     @PostMapping
@@ -41,7 +45,14 @@ public class TodoController {
         Long userId = currentUserId();
 
         Todo created = todoService.createTodo(userId, request);
-        return ResponseEntity.ok(toResponse(created));
+
+        URI location = ServletUriComponentsBuilder
+                .fromCurrentRequest()
+                .path("/{id}")
+                .buildAndExpand(created.getId())
+                .toUri();
+
+        return ResponseEntity.created(location).body(toResponse(created));
     }
 
     @PutMapping("/{id}")
@@ -56,27 +67,33 @@ public class TodoController {
     }
 
     @DeleteMapping("/{id}")
-    void deleteTodo(@PathVariable Long id) {
+    ResponseEntity<Void> deleteTodo(@PathVariable Long id) {
         Long userId = currentUserId();
 
         todoService.deleteTodo(userId, id);
+
+        return ResponseEntity.noContent().build();
     }
 
     @PatchMapping("/{id}/toggle")
-    void toggleTodoComplete(@PathVariable Long id) {
+    ResponseEntity<Void> toggleTodoComplete(@PathVariable Long id) {
         Long userId = currentUserId();
 
         todoService.toggleTodoComplete(userId, id);
+
+        return ResponseEntity.noContent().build();
     }
 
     @PatchMapping("/{id}/move")
-    void moveTodo(
+    ResponseEntity<Void> moveTodo(
             @PathVariable Long id,
             @Valid @RequestBody MoveTodoRequest request
     ) {
         Long userId = currentUserId();
 
         todoService.move(userId, id, request);
+
+        return ResponseEntity.noContent().build();
     }
 
     @PatchMapping("/{id}/assignees")
