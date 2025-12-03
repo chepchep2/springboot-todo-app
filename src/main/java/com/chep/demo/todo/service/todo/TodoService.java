@@ -46,14 +46,14 @@ public class TodoService {
 
         Set<User> assignees = resolveAssignees(request.assigneeIds());
 
-        Todo todo = Todo.create(
-                user,
-                request.title(),
-                request.content(),
-                orderIndex,
-                request.dueDate(),
-                assignees
-        );
+        Todo todo = Todo.builder()
+                .user(user)
+                .title(request.title())
+                .content(request.content())
+                .orderIndex(orderIndex)
+                .dueDate(request.dueDate())
+                .assignees(assignees)
+                .build();
 
         return todoRepository.save(todo);
     }

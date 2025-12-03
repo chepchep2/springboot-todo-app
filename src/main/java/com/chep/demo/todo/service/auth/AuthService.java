@@ -32,7 +32,11 @@ public class AuthService {
         String encodedPassword = passwordEncoder.encode(password);
 
         // user 생성
-        User user = User.create(name, email, encodedPassword);
+        User user = User.builder()
+                .name(name)
+                .email(email)
+                .password(encodedPassword)
+                .build();
 
         User saved = userRepository.save(user);
         String accessToken = jwtTokenProvider.generateAccessToken(saved.getId());

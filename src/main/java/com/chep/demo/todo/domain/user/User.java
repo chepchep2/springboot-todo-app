@@ -3,8 +3,14 @@ package com.chep.demo.todo.domain.user;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import lombok.AccessLevel;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 @Entity
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(name = "users")
 public class User {
     @Id
@@ -26,28 +32,13 @@ public class User {
     @Column(name = "password", nullable = false, length = 255)
     private String password;
 
-    public Long getId() {
-        return id;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public String getPassword() {
-        return password;
-    }
-
-    public static User create(String name, String email, String password) {
-        User user = new User();
-        user.name = name;
-        user.email = email;
-        user.password = password;
-
-        return user;
+    @Builder
+    private User(String name, String email, String password) {
+        if (name == null || email == null || password == null) {
+            throw new IllegalArgumentException("name, email, password must not be null");
+        }
+        this.name = name;
+        this.email = email;
+        this.password = password;
     }
 }

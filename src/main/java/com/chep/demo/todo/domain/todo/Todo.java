@@ -4,6 +4,10 @@ import com.chep.demo.todo.domain.user.User;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import lombok.AccessLevel;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.Where;
 
@@ -12,6 +16,8 @@ import java.util.HashSet;
 import java.util.Set;
 
 @Entity
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(name = "todos")
 @Where(clause = "deleted_at IS NULL")
 public class Todo {
@@ -36,7 +42,6 @@ public class Todo {
     private boolean completed = false;
 
     @NotNull
-    @ColumnDefault("now()")
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -54,6 +59,21 @@ public class Todo {
     @Column(name = "due_date")
     private Instant dueDate;
 
+    @Builder
+    private Todo(User user, String title, String content, Integer orderIndex, Instant dueDate, Set<User> assignees) {
+        this.user = user;
+        this.title = title;
+        this.content = content;
+        this.orderIndex = orderIndex;
+        this.dueDate = dueDate;
+        this.completed = false;
+        this.createdAt = Instant.now();
+
+        if (assignees != null) {
+            this.assignees = assignees;
+        }
+    }
+
     @ManyToMany
     @JoinTable(
             name = "todo_assignees",
@@ -64,58 +84,6 @@ public class Todo {
 
     @Column(name = "deleted_at")
     private Instant deletedAt;
-
-    public Instant getDeletedAt() {
-        return deletedAt;
-    }
-
-    public Set<User> getAssignees() {
-        return assignees;
-    }
-
-    public Instant getDueDate() {
-        return dueDate;
-    }
-
-    public Integer getOrderIndex() {
-        return orderIndex;
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public String getTitle() {
-        return title;
-    }
-
-    public String getContent() {
-        return content;
-    }
-
-    public boolean isCompleted() {
-        return completed;
-    }
-
-    public Instant getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(Instant createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public Instant getUpdatedAt() {
-        return updatedAt;
-    }
-
-    public User getUser() {
-        return user;
-    }
-
-    public void setUser(User user) {
-        this.user = user;
-    }
 
     public void toggleComplete() {
         this.completed = !this.completed;
@@ -155,22 +123,5 @@ public class Todo {
 
     public void markDeleted() {
         this.deletedAt = Instant.now();
-    }
-
-    public static Todo create(User user, String title, String content, Integer orderIndex, Instant dueDate, Set<User> assignees) {
-        Todo todo = new Todo();
-        todo.user = user;
-        todo.title = title;
-        todo.content = content;
-        todo.orderIndex = orderIndex;
-        todo.dueDate = dueDate;
-        todo.completed = false;
-        todo.createdAt = Instant.now();
-
-        if (assignees != null) {
-            todo.changeAssignees(assignees);
-        }
-
-        return todo;
     }
 }
