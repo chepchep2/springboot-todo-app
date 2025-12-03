@@ -1,7 +1,6 @@
 package com.chep.demo.todo.controller.todo;
 
 import com.chep.demo.todo.domain.todo.Todo;
-import com.chep.demo.todo.domain.user.User;
 import com.chep.demo.todo.dto.todo.*;
 import com.chep.demo.todo.service.todo.TodoService;
 import jakarta.validation.Valid;
@@ -125,7 +124,7 @@ public class TodoController {
                 todo.getOrderIndex(),
                 todo.getDueDate(),
                 todo.getAssignees().stream()
-                        .map(User::getId)
+                        .map(assignee -> assignee.getUser().getId())
                         .toList()
         );
     }

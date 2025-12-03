@@ -52,8 +52,9 @@ public class TodoService {
                 .content(request.content())
                 .orderIndex(orderIndex)
                 .dueDate(request.dueDate())
-                .assignees(assignees)
                 .build();
+
+        todo.changeAssignees(assignees);
 
         return todoRepository.save(todo);
     }
