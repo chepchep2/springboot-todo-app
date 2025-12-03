@@ -60,7 +60,7 @@ public class Todo {
     private Instant dueDate;
 
     @Builder
-    private Todo(User user, String title, String content, Integer orderIndex, Instant dueDate, Set<User> assignees) {
+    private Todo(User user, String title, String content, Integer orderIndex, Instant dueDate) {
         this.user = user;
         this.title = title;
         this.content = content;
@@ -68,19 +68,10 @@ public class Todo {
         this.dueDate = dueDate;
         this.completed = false;
         this.createdAt = Instant.now();
-
-        if (assignees != null) {
-            this.assignees = assignees;
-        }
     }
 
-    @ManyToMany
-    @JoinTable(
-            name = "todo_assignees",
-            joinColumns = @JoinColumn(name = "todo_id"),
-            inverseJoinColumns = @JoinColumn(name = "user_id")
-    )
-    private Set<User> assignees = new HashSet<>();
+    @OneToMany(mappedBy = "todo", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<TodoAssignee> assignees = new HashSet<>();
 
     @Column(name = "deleted_at")
     private Instant deletedAt;
@@ -90,14 +81,21 @@ public class Todo {
         this.updatedAt = Instant.now();
     }
 
-    public void changeAssignees(Set<User> assignees) {
+    public void changeAssignees(Set<User> users) {
         this.assignees.clear();
 
-        if (assignees == null) {
+        if (users == null || users.isEmpty()) {
+            this.updatedAt = Instant.now();
             return;
         }
 
-        this.assignees.addAll(assignees);
+        for (User user : users) {
+            TodoAssignee assignee = TodoAssignee.builder()
+                    .todo(this)
+                    .user(user)
+                    .build();
+            this.assignees.add(assignee);
+        }
         this.updatedAt = Instant.now();
     }
 
