@@ -3,15 +3,10 @@ package com.chep.demo.todo.domain.todo;
 import com.chep.demo.todo.domain.user.User;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
-import lombok.AccessLevel;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
 
 import java.time.Instant;
 
 @Entity
-@Getter
 @Table(name = "todo_assignees",
 uniqueConstraints = {
         @UniqueConstraint(
@@ -20,7 +15,6 @@ uniqueConstraints = {
         )
     }
 )
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class TodoAssignee {
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "todo_assignees_id")
@@ -39,8 +33,9 @@ public class TodoAssignee {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
-    @Builder
-    private TodoAssignee(User user, Todo todo) {
+    protected TodoAssignee() {}
+
+    private TodoAssignee(Todo todo, User user) {
         if (user == null) {
             throw new IllegalArgumentException("user must not be null");
         }
@@ -48,8 +43,47 @@ public class TodoAssignee {
             throw new IllegalArgumentException("todo must not be null");
         }
 
+        this.user =user;
         this.todo = todo;
-        this.user = user;
         this.createdAt = Instant.now();
+    }
+
+    public static class Builder {
+        private User user;
+        private Todo todo;
+
+        public Builder user(User user) {
+            this.user = user;
+            return this;
+        }
+
+        public Builder todo(Todo todo) {
+            this.todo = todo;
+            return this;
+        }
+
+        public TodoAssignee build() {
+            return new TodoAssignee(todo, user);
+        }
+    }
+
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public Todo getTodo() {
+        return todo;
+    }
+
+    public User getUser() {
+        return user;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
     }
 }

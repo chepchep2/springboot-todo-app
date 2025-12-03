@@ -4,10 +4,6 @@ import com.chep.demo.todo.domain.user.User;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import lombok.AccessLevel;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
 import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.Where;
 
@@ -16,8 +12,6 @@ import java.util.HashSet;
 import java.util.Set;
 
 @Entity
-@Getter
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(name = "todos")
 @Where(clause = "deleted_at IS NULL")
 public class Todo {
@@ -59,15 +53,74 @@ public class Todo {
     @Column(name = "due_date")
     private Instant dueDate;
 
-    @Builder
+    protected Todo() {}
+
     private Todo(User user, String title, String content, Integer orderIndex, Instant dueDate) {
+        if (user == null) {
+            throw new IllegalArgumentException("user must not be null");
+        }
+
+        if (title == null) {
+            throw new IllegalArgumentException("title must not be null");
+        }
+
+        if (content == null) {
+            throw new IllegalArgumentException("content must not be null");
+        }
+
+        if (orderIndex == null) {
+            throw new IllegalArgumentException("orderIndex must not bee null");
+        }
+
         this.user = user;
-        this.title = title;
+        this.title =title;
         this.content = content;
         this.orderIndex = orderIndex;
-        this.dueDate = dueDate;
         this.completed = false;
         this.createdAt = Instant.now();
+        this.dueDate = dueDate;
+        this.updatedAt = null;
+    }
+
+    public static class Builder {
+        private User user;
+        private String title;
+        private String content;
+        private Integer orderIndex;
+        private Instant dueDate;
+
+        public Builder user(User user) {
+            this.user = user;
+            return this;
+        }
+
+        public Builder title(String title) {
+            this.title = title;
+            return this;
+        }
+
+        public Builder content(String content) {
+            this.content = content;
+            return this;
+        }
+
+        public Builder orderIndex(Integer orderIndex) {
+            this.orderIndex = orderIndex;
+            return this;
+        }
+
+        public Builder dueDate(Instant dueDate) {
+            this.dueDate = dueDate;
+            return this;
+        }
+
+        public Todo build() {
+            return new Todo(user, title, content, orderIndex, dueDate);
+        }
+    }
+
+    public static Builder builder() {
+        return new Builder();
     }
 
     @OneToMany(mappedBy = "todo", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -121,5 +174,49 @@ public class Todo {
 
     public void markDeleted() {
         this.deletedAt = Instant.now();
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public String getContent() {
+        return content;
+    }
+
+    public boolean isCompleted() {
+        return completed;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public User getUser() {
+        return user;
+    }
+
+    public Integer getOrderIndex() {
+        return orderIndex;
+    }
+
+    public Instant getDueDate() {
+        return dueDate;
+    }
+
+    public Set<TodoAssignee> getAssignees() {
+        return assignees;
+    }
+
+    public Instant getDeletedAt() {
+        return deletedAt;
     }
 }
