@@ -9,6 +9,7 @@ import com.chep.demo.todo.dto.todo.MoveTodoRequest;
 import com.chep.demo.todo.dto.todo.UpdateAssigneesRequest;
 import com.chep.demo.todo.dto.todo.UpdateDueDateRequest;
 import com.chep.demo.todo.dto.todo.UpdateTodoRequest;
+import com.chep.demo.todo.exception.auth.AuthenticationException;
 import com.chep.demo.todo.exception.todo.TodoNotFoundException;
 import com.chep.demo.todo.service.auth.AuthService;
 import org.springframework.stereotype.Service;
@@ -22,12 +23,10 @@ import java.util.HashSet;
 @Transactional
 public class TodoService {
     private final TodoRepository todoRepository;
-    private final AuthService authService;
     private final UserRepository userRepository;
 
     public TodoService(TodoRepository todoRepository, AuthService authService, UserRepository userRepository) {
         this.todoRepository = todoRepository;
-        this.authService = authService;
         this.userRepository = userRepository;
     }
 
@@ -37,7 +36,8 @@ public class TodoService {
     }
 
     public Todo createTodo(Long userId, CreateTodoRequest request) {
-        User user = authService.getUserById(userId);
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new AuthenticationException("User not found"));
 
         Integer orderIndex = request.orderIndex();
         if (orderIndex == null) {
