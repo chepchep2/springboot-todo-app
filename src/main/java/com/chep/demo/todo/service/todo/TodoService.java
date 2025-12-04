@@ -77,10 +77,6 @@ public class TodoService {
 
         todo.changeTitleAndContent(request.title(), request.content());
 
-        if (request.orderIndex() != null) {
-            todo.changeOrderIndex(request.orderIndex());
-        }
-
         return todoRepository.save(todo);
     }
 
