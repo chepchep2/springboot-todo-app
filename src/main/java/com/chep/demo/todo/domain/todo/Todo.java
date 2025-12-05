@@ -69,11 +69,11 @@ public class Todo {
         }
 
         if (orderIndex == null) {
-            throw new IllegalArgumentException("orderIndex must not bee null");
+            throw new IllegalArgumentException("orderIndex must not be null");
         }
 
         this.user = user;
-        this.title =title;
+        this.title = title;
         this.content = content;
         this.orderIndex = orderIndex;
         this.completed = false;
