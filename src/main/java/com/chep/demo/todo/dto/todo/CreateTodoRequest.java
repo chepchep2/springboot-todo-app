@@ -9,7 +9,6 @@ import java.util.List;
 public record CreateTodoRequest(
         @NotEmpty(message = "Title is required")
         String title,
-        @NotNull(message = "Content is required")
         String content,
         Integer orderIndex,
         Instant dueDate,
