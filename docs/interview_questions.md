@@ -13,7 +13,7 @@
 
 - `TodoService`가 `AuthService`를 의존하고 있는데, 이런 Service 간 의존이 적절한가요? 순환 의존이 발생하면 어떻게 해결할 건가요?
   **[Circular Dependency, DI Container, @Lazy, 이벤트 기반 분리]**
-
+ 
 ### 1.2 도메인 모델 설계
 - `Todo` 엔티티에 `toggleComplete()`, `changeAssignees()` 같은 비즈니스 메서드를 넣은 이유는 무엇인가요? Service에 두는 것과 어떤 차이가 있나요?
   **[Rich Domain Model vs Anemic Domain Model, DDD, 캡슐화]**
