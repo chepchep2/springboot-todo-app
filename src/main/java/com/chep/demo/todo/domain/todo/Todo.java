@@ -26,8 +26,7 @@ public class Todo {
     private String title;
 
     @Size(max = 500)
-    @NotNull
-    @Column(name = "content", nullable = false, length = 500)
+    @Column(name = "content", length = 500)
     private String content;
 
     @NotNull
@@ -62,10 +61,6 @@ public class Todo {
 
         if (title == null) {
             throw new IllegalArgumentException("title must not be null");
-        }
-
-        if (content == null) {
-            throw new IllegalArgumentException("content must not be null");
         }
 
         if (orderIndex == null) {
@@ -153,6 +148,9 @@ public class Todo {
     }
 
     public void changeTitleAndContent(String title, String content) {
+        if (title == null) {
+            throw new IllegalArgumentException("title must not be null");
+        }
         this.title = title;
         this.content = content;
         this.updatedAt = Instant.now();
