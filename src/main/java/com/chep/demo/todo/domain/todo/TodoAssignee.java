@@ -43,7 +43,7 @@ public class TodoAssignee {
             throw new IllegalArgumentException("todo must not be null");
         }
 
-        this.user =user;
+        this.user = user;
         this.todo = todo;
         this.createdAt = Instant.now();
     }
