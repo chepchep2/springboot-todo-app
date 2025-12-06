@@ -9,6 +9,7 @@ import com.chep.demo.todo.dto.todo.MoveTodoRequest;
 import com.chep.demo.todo.dto.todo.UpdateAssigneesRequest;
 import com.chep.demo.todo.dto.todo.UpdateDueDateRequest;
 import com.chep.demo.todo.dto.todo.UpdateTodoRequest;
+import com.chep.demo.todo.exception.auth.AuthenticationException;
 import com.chep.demo.todo.exception.todo.TodoNotFoundException;
 import com.chep.demo.todo.service.auth.AuthService;
 import org.springframework.stereotype.Service;
@@ -22,12 +23,10 @@ import java.util.HashSet;
 @Transactional
 public class TodoService {
     private final TodoRepository todoRepository;
-    private final AuthService authService;
     private final UserRepository userRepository;
 
-    public TodoService(TodoRepository todoRepository, AuthService authService, UserRepository userRepository) {
+    public TodoService(TodoRepository todoRepository, UserRepository userRepository) {
         this.todoRepository = todoRepository;
-        this.authService = authService;
         this.userRepository = userRepository;
     }
 
@@ -37,11 +36,23 @@ public class TodoService {
     }
 
     public Todo createTodo(Long userId, CreateTodoRequest request) {
-        User user = authService.getUserById(userId);
-
         Integer orderIndex = request.orderIndex();
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new AuthenticationException("User not found"));
+        Long totalCounting = todoRepository.countByUserId(userId);
+        int totalCount = totalCounting.intValue();
+
         if (orderIndex == null) {
-            orderIndex = todoRepository.countByUserId(userId).intValue();
+            orderIndex = totalCount;
+        } else {
+            // 0 ~ totalCount 사이만 허용
+            if (orderIndex < 0 || orderIndex > totalCount) {
+                throw new IllegalArgumentException("orderIndex out of range: 0 ~ " + totalCount);
+            }
+
+            if (orderIndex < totalCount) {
+                shiftOrderIndexRange(userId, orderIndex, totalCount - 1, + 1);
+            }
         }
 
         Set<User> assignees = resolveAssignees(request.assigneeIds());
@@ -57,6 +68,20 @@ public class TodoService {
         todo.changeAssignees(assignees);
 
         return todoRepository.save(todo);
+    }
+
+    private void shiftOrderIndexRange(Long userId, int start, int end, int delta) {
+        if (start > end) {
+            return;
+        }
+
+        List<Todo> affectedTodos = todoRepository.findByUserIdAndOrderIndexBetween(userId, start, end);
+
+        for (Todo affected: affectedTodos) {
+            affected.changeOrderIndex(affected.getOrderIndex() + delta);
+        }
+
+        todoRepository.saveAll(affectedTodos);
     }
 
     private Set<User> resolveAssignees(List<Long> assigneeIds) {
@@ -106,6 +131,13 @@ public class TodoService {
             return;
         }
 
+        Long totalCountLong = todoRepository.countByUserId(userId);
+        int totalCount = totalCountLong.intValue();
+
+        if (targetOrderIndex < 0 || targetOrderIndex >= totalCount) {
+            throw new IllegalArgumentException("targetOrderIndex out of range: 0 ~ " + (totalCount - 1));
+        }
+
         int start;
         int end;
         int delta;
@@ -120,19 +152,10 @@ public class TodoService {
             delta = -1;
         }
 
-        List<Todo> affectedTodos = todoRepository.findByUserIdAndOrderIndexBetween(
-                userId,
-                start,
-                end
-        );
-
-        for (Todo affected : affectedTodos) {
-            affected.changeOrderIndex(affected.getOrderIndex() + delta);
-        }
+        shiftOrderIndexRange(userId, start, end, delta);
 
         todo.changeOrderIndex(targetOrderIndex);
 
-        todoRepository.saveAll(affectedTodos);
         todoRepository.save(todo);
     }
 
