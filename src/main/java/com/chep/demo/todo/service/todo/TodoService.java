@@ -51,7 +51,11 @@ public class TodoService {
             }
 
             if (orderIndex < totalCount) {
-                shiftOrderIndexRange(userId, orderIndex, totalCount - 1, + 1);
+                List<Todo> affectedTodos = todoRepository.findByUserIdAndOrderIndexBetween(userId, orderIndex, totalCount - 1);
+
+                shiftOrderIndexRange(affectedTodos, + 1);
+
+                todoRepository.saveAll(affectedTodos);
             }
         }
 
@@ -70,18 +74,10 @@ public class TodoService {
         return todoRepository.save(todo);
     }
 
-    private void shiftOrderIndexRange(Long userId, int start, int end, int delta) {
-        if (start > end) {
-            return;
-        }
-
-        List<Todo> affectedTodos = todoRepository.findByUserIdAndOrderIndexBetween(userId, start, end);
-
+    private void shiftOrderIndexRange(List<Todo> affectedTodos, int delta) {
         for (Todo affected: affectedTodos) {
             affected.changeOrderIndex(affected.getOrderIndex() + delta);
         }
-
-        todoRepository.saveAll(affectedTodos);
     }
 
     private Set<User> resolveAssignees(List<Long> assigneeIds) {
@@ -152,10 +148,13 @@ public class TodoService {
             delta = -1;
         }
 
-        shiftOrderIndexRange(userId, start, end, delta);
+        List<Todo> affectedTodos = todoRepository.findByUserIdAndOrderIndexBetween(userId, start, end);
+
+        shiftOrderIndexRange(affectedTodos, delta);
 
         todo.changeOrderIndex(targetOrderIndex);
 
+        todoRepository.saveAll(affectedTodos);
         todoRepository.save(todo);
     }
 
