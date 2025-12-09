@@ -51,6 +51,9 @@
 
 - Soft Delete된 Todo의 `orderIndex`는 어떻게 처리되나요? 삭제 후 남은 Todo들의 순서에 갭(gap)이 생기지 않나요?
   **[데이터 정합성, orderIndex 재정렬, 배치 처리]**
+- 답변
+  - Soft Delete를 적용하면 기존 Todo orderIndex가 그대로 남기 때문 중간에 Todo가 삭제될 경우 orderIndex에 갭이 생기는 문제가 있었습니다.
+  - 이걸 삭제시 재정렬 로직을 추가하여 연속된 orderIndex가 유지되도록 개선하였습니다.
 
 ---
 
@@ -59,23 +62,55 @@
 ### 2.1 JWT 구조
 - 현재 JWT 페이로드에 `subject(userId)`, `issuedAt`, `expiration`만 있는데, access token과 refresh token을 어떻게 구분하나요? 구분하지 않으면 어떤 문제가 생기나요?
   **[JWT Claims, Token Type Claim, 토큰 오용 공격]**
+- 답변
+  - 지금은 만료시간만 다르고 토큰 구조는 동일해서 구분하지 못합니다.
+  - 구분하지 않으면 refresh API에 accessToken을 넣어도 동작해버릴 수 있습니다.
+  - type을 추가해서 구분을 하는게 좋을 것 같습니다.
 
 - `/api/auth/refresh` 엔드포인트에 만료되지 않은 access token을 넣으면 어떻게 되나요? 이것이 보안상 문제가 될 수 있나요?
   **[Token Confusion Attack, Claim Validation]**
+- 답변
+  - 지금은 refresh API에 만료되지 않은 accessToken을 넣어도 검증이 됩니다..
+  - type을 추가해서 구분을 하는게 좋을 것 같습니다. refresh API에서는 type이 refresh인지 검증해야 합니다.
 
 ### 2.2 인증 필터
 - `JwtAuthenticationFilter`에서 토큰이 없거나 유효하지 않을 때 그냥 `filterChain.doFilter()`로 넘기는데, 이렇게 한 이유는 무엇인가요? 401 응답을 직접 반환하지 않은 이유는?
   **[Filter Chain, Spring Security AuthenticationEntryPoint, 인증 vs 인가 분리]**
+- 답변
+  - 인증이 필요한 API와 필요없는 API를 구분하기 위해서입니다.
+  - Filter는 토큰 추출만 담당하고, 인증 필요 여부는 SecurityConfig에서 URL별로 설정하였습니다.
+  - /api/auth/login, /api/auth/register는 토큰 없이 접근 가능해야합니다.
+  - 401을 바로 반환하면 토큰 없이 접근 가능한 API도 다 막혀버립니다.
 
 - `UsernamePasswordAuthenticationToken`의 principal에 `userId`(Long)만 넣었는데, `UserDetails`를 구현한 객체를 넣지 않은 이유는 무엇인가요? 권한(Role) 기반 인가를 추가하려면 어떻게 해야 하나요?
   **[Principal, UserDetails, GrantedAuthority, @PreAuthorize]**
+- 답변
+  - 처음에 작은 프로젝트로 판단하여 userId만 넣었었습니다.
+  - UserDetail를 구현한 CustomUserDetails를 생성하고 userId, email, role을 저장합니다.
+  - Filter에서 CustomUserDetail를 Principal로 설정하면 될 것 같습니다.
 
 ### 2.3 토큰 관리
 - Refresh Token이 탈취되면 어떻게 대응하나요? 현재 구조에서 특정 토큰만 무효화할 수 있나요?
   **[Token Revocation, Token Blacklist, Redis, Refresh Token Rotation]**
+- 답변
+  - 현재는 특정 토큰만 무효화할 수 없습니다.
+  - JWT를 서버에 저장하지 않는 Stateless 방식이라 '이 토큰이 무효화되었는지' 확인할 방법이 없습니다. 한 번 발급되면 만료 시간까지는 계속 유효합니다..
+  - Refresh Token 탈취시 공격자가 7일 동안 계속 새로운 accessToken을 발급받을 수 있습니다.
+  - Token BlackList
+    - 로그아웃시 해당 토큰을 Redis에 저장
+    - 매 요청마다 블랙리스트에 있는지 확인하여 차단
+  - Refresh Token Rotation(토큰 교체)
+    - Refresh Token을 한 번 사용하면 새로운 Refresh Token 발급
+    - 기존 Refresh Token은 데이터베이서에서 삭제하여 무효화
+    - 이미 사용된 토큰이 다시 요청되면 탈취로 판단
+  - Refresh Token을 데이터베이스에 저장
+    - Refresh Token을 발급할 때 DB에 저장
+    - 갱신 요청시 DB에 있는지 확인
 
 - access token 만료 시간이 10분, refresh token이 7일인데, 이 값을 어떤 기준으로 정했나요?
   **[Token Lifetime, 보안 vs UX 트레이드오프, Sliding Session]**
+- 답변
+  - 임의 시간을 넣은 것입나다. 10분과 7일이 너무 짧지도 너무 길지도 않은 시간이라 판단하여 넣었습니다. 
 
 ---
 
@@ -84,6 +119,8 @@
 ### 3.1 엔티티 매핑
 - `@ManyToOne(fetch = FetchType.LAZY)`를 사용했는데, Lazy Loading이 동작하지 않는 경우는 언제인가요? N+1 문제가 발생할 수 있는 부분이 있나요?
   **[Lazy Loading, Proxy, N+1 Problem, @EntityGraph, Fetch Join]**
+- 답변
+  - 
 
 - `Todo`와 `User` 관계에서 `CascadeType`을 지정하지 않았는데, User 삭제 시 해당 User의 Todo는 어떻게 되나요?
   **[CascadeType, orphanRemoval, 참조 무결성, ON DELETE CASCADE]**
