@@ -105,7 +105,15 @@ public class TodoService {
         Todo todo = todoRepository.findByIdAndUserId(todoId, userId)
                 .orElseThrow(() -> new TodoNotFoundException("Todo not found"));
 
+        int deletedOrderIndex = todo.getOrderIndex();
+
         todoRepository.softDelete(todo);
+
+        List<Todo> affectedTodos = todoRepository.findByUserIdAndOrderIndexGreaterThan(userId, deletedOrderIndex);
+
+        shiftOrderIndexRange(affectedTodos, - 1);
+
+        todoRepository.saveAll(affectedTodos);
     }
 
     public void toggleTodoComplete(Long userId, Long todoId) {
