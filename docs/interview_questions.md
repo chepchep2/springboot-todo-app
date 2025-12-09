@@ -10,17 +10,44 @@
 ### 1.1 레이어드 아키텍처
 - Controller / Service / Domain 레이어의 책임을 어떻게 구분했나요? 예를 들어 `TodoController`에서 `toResponse()` 변환 로직이 있는데, 이것이 Controller에 있어야 하는 이유는 무엇인가요?
   **[Layered Architecture, DTO 변환, Single Responsibility Principle]**
+- 답변
+  - Controller는 클라이언트와의 요청/응답을 담당하고 
+  - Service는 유즈케이스를 메서드로 한 눈에 볼 수 있게 하였고
+  - Domain에서는 각 Entity에 대한 필드, 어떤 테이블을 사용하는지를 정의하였습니다.
+  - Controller가 클라이언트에게 요청 받고, 응답을 해주기 때문에
+  - 어떤 형태로 데이터를 보내줄지 결정하는 toResponse는 Controller에 있어야한다고 생각합니다.
 
 - `TodoService`가 `AuthService`를 의존하고 있는데, 이런 Service 간 의존이 적절한가요? 순환 의존이 발생하면 어떻게 해결할 건가요?
   **[Circular Dependency, DI Container, @Lazy, 이벤트 기반 분리]**
+- 답변
+  - 하나의 서비스가 또 다른 서비스를 의존하고 있는건 좋지않습니다.
+  - 이유는 서비스간 의존성이 없는 것이 좋기 떄문입니다. 
+  - 명확한 이유는 잘 모르겠습니다..
+  - 단일 책임 원칙(SRP)위반
+  - TodoService의 책임은 Todo 관련 비즈니스 로직이어야 하는데
+  - AuthService를 직접 의존하면 인증 로직까지 알어야 합니다.
+  - AuthService의 구현이 바뀌면 TodoService도 영향을 받아서 결합도가 높아집니다.
  
 ### 1.2 도메인 모델 설계
 - `Todo` 엔티티에 `toggleComplete()`, `changeAssignees()` 같은 비즈니스 메서드를 넣은 이유는 무엇인가요? Service에 두는 것과 어떤 차이가 있나요?
   **[Rich Domain Model vs Anemic Domain Model, DDD, 캡슐화]**
+- 답변
+  - Todo 엔티티 자체의 값을 변경하는 것이기 때문에 service보다 엔티티에 넣는 것이 맞다고 생각하였습니다.
+  - Todo의 상태 변경을 Todo안에 넣어서 외부에서 setter로 임의로 바꾸는 걸 막을 수 있습니다.
+  - 도메인 로직을 엔티티에 두는 걸 Rich Domain Model이라고 하고 엔티티가 getter/setter만 있고 로직이 없으면 Anemic Domain Model이라고 합ㄴ디ㅏ.
+  - DDD(Domain-Driven Design)에서는 비즈니스 로직을 도메인 객체에 두는 걸 권장합니다.
 
 ### 1.3 Soft Delete
 - `@Where(clause = "deleted_at IS NULL")`로 Soft Delete를 구현했는데, 삭제된 데이터를 조회해야 할 때는 어떻게 하나요?
   **[@Where, @FilterDef, Native Query, Hibernate Filter]**
+- 답변
+  - Native Query 사용
+    - deleted_at IS NOT NULL 조건으로 직접 SQL을 작성해서 삭제된 데이터를 조회할 수 있습니다.
+    - @Query(value = "SELECT * FROM todos WHERE deleted_at IS NOT NULL", nativeQuery = true
+  - @FilterDef와 @Filter 사용
+    - @Where 대신 Hibernate Filter를 사용하면 필요할 때만 필터를 끄거나 켤 수 있습니다.
+    - 예시) 특정 페이지에서는 필터를 끄고 삭제된 데이터까지 볼 수 있습니다.
+  - 지금은 @Where를 사용하고 있어서 삭제된 데이터 조회가 필요하면 Native Query를 추가로 작성해야 합니다.
 
 - Soft Delete된 Todo의 `orderIndex`는 어떻게 처리되나요? 삭제 후 남은 Todo들의 순서에 갭(gap)이 생기지 않나요?
   **[데이터 정합성, orderIndex 재정렬, 배치 처리]**
