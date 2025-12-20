@@ -50,6 +50,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         // 토큰 유효성 검사 + 현재 SecurityContext 비어 있는지 확인
         if (jwtTokenProvider.validateToken(token)
+        && jwtTokenProvider.isAccessToken(token)
         && SecurityContextHolder.getContext().getAuthentication() == null) {
 
             Long userId = jwtTokenProvider.getUserIdFromToken(token);
