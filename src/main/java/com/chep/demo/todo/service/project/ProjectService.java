@@ -1,0 +1,85 @@
+package com.chep.demo.todo.service.project;
+
+import com.chep.demo.todo.domain.project.Project;
+import com.chep.demo.todo.domain.project.ProjectRepository;
+import com.chep.demo.todo.domain.workspace.WorkspaceMember;
+import com.chep.demo.todo.domain.workspace.WorkspaceMemberRepository;
+import com.chep.demo.todo.exception.project.ProjectNotFoundException;
+import com.chep.demo.todo.exception.project.ProjectOperationException;
+import com.chep.demo.todo.exception.workspace.WorkspaceAccessDeniedException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+
+@Service
+@Transactional
+public class ProjectService {
+    private final ProjectRepository projectRepository;
+    private final WorkspaceMemberRepository workspaceMemberRepository;
+
+    public ProjectService(ProjectRepository projectRepository,
+                          WorkspaceMemberRepository workspaceMemberRepository) {
+        this.projectRepository = projectRepository;
+        this.workspaceMemberRepository = workspaceMemberRepository;
+    }
+
+    @Transactional(readOnly = true)
+    public List<Project> getProjects(Long workspaceId, Long userId) {
+        requireActiveMember(workspaceId, userId);
+        return projectRepository.findAllByWorkspaceId(workspaceId);
+    }
+
+    public Project createProject(Long workspaceId, Long userId, String name, String description) {
+        WorkspaceMember member = requireActiveMember(workspaceId, userId);
+        Project project = Project.of(member.getWorkspace(), member.getUser(), name, description);
+        return projectRepository.save(project);
+    }
+
+    @Transactional(readOnly = true)
+    public Project getProject(Long workspaceId, Long projectId, Long userId) {
+        requireActiveMember(workspaceId, userId);
+        return findProject(workspaceId, projectId);
+    }
+
+    public Project updateProject(Long workspaceId, Long projectId, Long userId, String name, String description) {
+        WorkspaceMember member = requireActiveMember(workspaceId, userId);
+        Project project = findProject(workspaceId, projectId);
+        ensureCanModifyProject(member, project);
+        project.changeNameAndDescription(name, description);
+        return projectRepository.save(project);
+    }
+
+    public void deleteProject(Long workspaceId, Long projectId, Long userId) {
+        WorkspaceMember member = requireActiveMember(workspaceId, userId);
+        Project project = findProject(workspaceId, projectId);
+        if (project.isDefaultProject()) {
+            throw new ProjectOperationException("Default project cannot be deleted");
+        }
+        ensureCanModifyProject(member, project);
+        project.markDeleted();
+        projectRepository.save(project);
+    }
+
+    private WorkspaceMember requireActiveMember(Long workspaceId, Long userId) {
+        return workspaceMemberRepository.findByWorkspaceIdAndUserIdAndStatus(
+                        workspaceId,
+                        userId,
+                        WorkspaceMember.Status.ACTIVE
+                )
+                .orElseThrow(() -> new WorkspaceAccessDeniedException("Only workspace members can access this resource."));
+    }
+
+    private Project findProject(Long workspaceId, Long projectId) {
+        return projectRepository.findByIdAndWorkspaceId(projectId, workspaceId)
+                .orElseThrow(() -> new ProjectNotFoundException("Project not found"));
+    }
+
+    private void ensureCanModifyProject(WorkspaceMember member, Project project) {
+        boolean isOwner = member.getRole() == WorkspaceMember.Role.OWNER;
+        boolean isCreator = project.getCreatedBy().getId().equals(member.getUser().getId());
+        if (!isOwner && !isCreator) {
+            throw new WorkspaceAccessDeniedException("You do not have permission to modify this project.");
+        }
+    }
+}

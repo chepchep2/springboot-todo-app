@@ -37,15 +37,22 @@ public class Project {
     @JoinColumn(name = "created_by_user_id", nullable = false)
     private User createdBy;
 
-    @Column(name = "archived_at")
-    private Instant archivedAt;
+    @NotNull
+    @Column(name = "created_at", nullable = false)
+    private Instant createdAt;
+
+    @Column(name = "updated_at")
+    private Instant updatedAt;
 
     @Column(name = "deleted_at")
     private Instant deletedAt;
 
+    @Column(name = "is_default", nullable = false)
+    private boolean defaultProject;
+
     protected Project() {}
 
-    private Project(Workspace workspace, User createdBy, String name, String description) {
+    private Project(Workspace workspace, User createdBy, String name, String description, boolean defaultProject) {
         if (workspace == null) {
             throw new IllegalArgumentException("workspace must not be null");
         }
@@ -62,6 +69,9 @@ public class Project {
         this.createdBy = createdBy;
         this.name = name;
         this.description = description;
+        this.defaultProject = defaultProject;
+        this.createdAt = Instant.now();
+        this.updatedAt = null;
     }
 
     public static class Builder {
@@ -69,6 +79,7 @@ public class Project {
         private User createdBy;
         private String name;
         private String description;
+        private boolean defaultProject;
 
         public Builder workspace(Workspace workspace) {
             this.workspace = workspace;
@@ -90,8 +101,13 @@ public class Project {
             return this;
         }
 
+        public Builder defaultProject(boolean defaultProject) {
+            this.defaultProject = defaultProject;
+            return this;
+        }
+
         public Project build() {
-            return new Project(workspace, createdBy, name, description);
+            return new Project(workspace, createdBy, name, description, defaultProject);
         }
     }
 
@@ -105,6 +121,7 @@ public class Project {
                 .createdBy(createdBy)
                 .name(name)
                 .description(description)
+                .defaultProject(false)
                 .build();
     }
 
@@ -114,6 +131,7 @@ public class Project {
                 .createdBy(owner)
                 .name("Personal Project")
                 .description("Default project")
+                .defaultProject(true)
                 .build();
     }
 
@@ -124,14 +142,7 @@ public class Project {
 
         this.name = name;
         this.description = description;
-    }
-
-    public void archive() {
-        this.archivedAt = Instant.now();
-    }
-
-    public void unarchive() {
-        this.archivedAt = null;
+        this.updatedAt = Instant.now();
     }
 
     public void markDeleted() {
@@ -158,11 +169,19 @@ public class Project {
         return createdBy;
     }
 
-    public Instant getArchivedAt() {
-        return archivedAt;
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
     }
 
     public Instant getDeletedAt() {
         return deletedAt;
+    }
+
+    public boolean isDefaultProject() {
+        return defaultProject;
     }
 }
