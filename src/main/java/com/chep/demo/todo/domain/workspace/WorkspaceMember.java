@@ -130,6 +130,10 @@ public class WorkspaceMember {
         this.statusChangedAt = Instant.now();
     }
 
+    public boolean isOwner() {
+        return this.role == Role.OWNER;
+    }
+
     public Long getId() {
         return id;
     }
