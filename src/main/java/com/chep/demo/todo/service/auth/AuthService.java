@@ -1,7 +1,13 @@
 package com.chep.demo.todo.service.auth;
 
+import com.chep.demo.todo.domain.project.Project;
+import com.chep.demo.todo.domain.project.ProjectRepository;
 import com.chep.demo.todo.domain.user.User;
 import com.chep.demo.todo.domain.user.UserRepository;
+import com.chep.demo.todo.domain.workspace.Workspace;
+import com.chep.demo.todo.domain.workspace.WorkspaceMember;
+import com.chep.demo.todo.domain.workspace.WorkspaceMemberRepository;
+import com.chep.demo.todo.domain.workspace.WorkspaceRepository;
 import com.chep.demo.todo.exception.auth.AuthenticationException;
 import com.chep.demo.todo.security.JwtTokenProvider;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -14,11 +20,24 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
+    private final WorkspaceRepository workspaceRepository;
+    private final WorkspaceMemberRepository workspaceMemberRepository;
+    private final ProjectRepository projectRepository;
 
-    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtTokenProvider jwtTokenProvider) {
+    public AuthService(
+            UserRepository userRepository,
+            PasswordEncoder passwordEncoder,
+            JwtTokenProvider jwtTokenProvider,
+            WorkspaceRepository workspaceRepository,
+            WorkspaceMemberRepository workspaceMemberRepository,
+            ProjectRepository projectRepository
+    ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenProvider = jwtTokenProvider;
+        this.workspaceRepository = workspaceRepository;
+        this.workspaceMemberRepository = workspaceMemberRepository;
+        this.projectRepository = projectRepository;
     }
 
     @Transactional
@@ -39,6 +58,7 @@ public class AuthService {
                 .build();
 
         User saved = userRepository.save(user);
+        createPersonalWorkspace(saved);
         String accessToken = jwtTokenProvider.generateAccessToken(saved.getId());
         String refreshToken = jwtTokenProvider.generateRefreshToken(saved.getId());
 
@@ -85,5 +105,12 @@ public class AuthService {
         String newAccessToken = jwtTokenProvider.generateAccessToken(user.getId());
 
         return new AuthResult(user, newAccessToken, refreshToken);
+    }
+
+    private void createPersonalWorkspace(User owner) {
+        Workspace workspace = Workspace.personal(owner);
+        Workspace savedWorkspace = workspaceRepository.save(workspace);
+        workspaceMemberRepository.save(WorkspaceMember.owner(savedWorkspace, owner));
+        projectRepository.save(Project.defaultProject(savedWorkspace, owner));
     }
 }
