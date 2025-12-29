@@ -35,6 +35,13 @@ public class Workspace {
     @Column(name = "is_personal", nullable = false)
     private boolean personal;
 
+    @NotNull
+    @Column(name = "created_at", nullable = false)
+    private Instant createdAt;
+
+    @Column(name = "updated_at")
+    private Instant updatedAt;
+
     @Column(name = "deleted_at")
     private Instant deletedAt;
 
@@ -53,12 +60,15 @@ public class Workspace {
         this.name = name;
         this.description = description;
         this.personal = personal;
+        this.createdAt = Instant.now();
+        this.updatedAt = null;
     }
 
     public static class Builder {
         private User owner;
         private String name;
         private String description;
+        private boolean personal;
 
         public Builder owner(User owner) {
             this.owner = owner;
@@ -75,8 +85,13 @@ public class Workspace {
             return this;
         }
 
+        public Builder personal(boolean personal) {
+            this.personal = personal;
+            return this;
+        }
+
         public Workspace build() {
-            return new Workspace(owner, name, description, false);
+            return new Workspace(owner, name, description, personal);
         }
     }
 
@@ -85,7 +100,13 @@ public class Workspace {
     }
 
     public static Workspace personal(User owner) {
-        return new Workspace(owner, "Personal", "Personal Workspace", true);
+//        return new Workspace(owner, "Personal", "Personal Workspace", true);
+        return Workspace.builder()
+                .owner(owner)
+                .name("Personal")
+                .description("Personal Workspace")
+                .personal(true)
+                .build();
     }
 
     public static Workspace of(User owner, String name, String description) {
@@ -93,6 +114,7 @@ public class Workspace {
                 .owner(owner)
                 .name(name)
                 .description(description)
+                .personal(false)
                 .build();
     }
 
@@ -103,6 +125,7 @@ public class Workspace {
 
         this.name = name;
         this.description = description;
+        this.updatedAt = Instant.now();
     }
 
     public void markDeleted() {
@@ -112,7 +135,6 @@ public class Workspace {
     public boolean isPersonal() {
         return personal;
     }
-
 
     public Long getId() {
         return id;
@@ -128,6 +150,14 @@ public class Workspace {
 
     public String getDescription() {
         return description;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
     }
 
     public Instant getDeletedAt() {
