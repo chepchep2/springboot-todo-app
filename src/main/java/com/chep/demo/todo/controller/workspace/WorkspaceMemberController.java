@@ -2,6 +2,8 @@ package com.chep.demo.todo.controller.workspace;
 
 import com.chep.demo.todo.domain.workspace.WorkspaceMember;
 import com.chep.demo.todo.dto.workspace.AddWorkspaceMemberRequest;
+import com.chep.demo.todo.dto.workspace.WorkspaceMemberPage;
+import com.chep.demo.todo.dto.workspace.WorkspaceMemberPageResponse;
 import com.chep.demo.todo.dto.workspace.WorkspaceMemberResponse;
 import com.chep.demo.todo.service.workspace.WorkspaceMemberService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -39,6 +41,33 @@ public class WorkspaceMemberController {
                 .map(this::toResponse)
                 .toList();
         return ResponseEntity.ok(responses);
+    }
+
+    @GetMapping("/cursor")
+    ResponseEntity<WorkspaceMemberPageResponse> getMembersWithCursor(
+            @PathVariable Long workspaceId,
+            @RequestParam(required = false) WorkspaceMember.Status status,
+            @RequestParam(required = false) String cursorJoinedAt,
+            @RequestParam(required = false) Long cursorMemberId,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false, defaultValue = "20") int limit
+            ) {
+        Long userId = currentUserId();
+
+        WorkspaceMemberPage page = workspaceMemberService.getMembersWithCursor(
+                workspaceId, userId, status, cursorJoinedAt, cursorMemberId, keyword, limit
+        );
+
+        List<WorkspaceMemberResponse> responses = page.members().stream()
+                .map(this::toResponse)
+                .toList();
+
+        return ResponseEntity.ok(new WorkspaceMemberPageResponse(
+                responses,
+                page.hasNext(),
+                page.nextCursorJoinedAt(),
+                page.nextCursorMemberId()
+        ));
     }
 
     @Operation(summary = "내 멤버 정보", description = "해당 워크스페이스에서 내 역할/상태를 조회합니다.")
