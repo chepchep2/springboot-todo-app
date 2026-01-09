@@ -96,28 +96,30 @@ public class TodoService {
     }
 
     public void move(Long userId, Long todoId, MoveTodoRequest request) {
-        Todo todo = todoRepository.findByIdAndUserId(todoId, userId)
+        Todo target = todoRepository.findByIdAndUserId(todoId, userId)
                 .orElseThrow(() -> new TodoNotFoundException("Todo not found"));
 
         Integer targetOrderIndex = request.targetOrderIndex();
-        Integer currentOrderIndex = todo.getOrderIndex();
+        Integer currentOrderIndex = target.getOrderIndex();
 
         if (targetOrderIndex.equals(currentOrderIndex)) {
             return;
         }
 
+        int maxIndex = todoRepository.countByUserId(userId).intValue() - 1;
+        if (targetOrderIndex > maxIndex) {
+            throw new IllegalArgumentException("targetIndex exceeds maximum");
+        }
+
         int start;
         int end;
-        int delta;
 
         if (targetOrderIndex < currentOrderIndex) {
             start = targetOrderIndex;
             end = currentOrderIndex - 1;
-            delta = 1;
         } else {
             start = currentOrderIndex + 1;
             end = targetOrderIndex;
-            delta = -1;
         }
 
         List<Todo> affectedTodos = todoRepository.findByUserIdAndOrderIndexBetween(
@@ -126,14 +128,11 @@ public class TodoService {
                 end
         );
 
-        for (Todo affected : affectedTodos) {
-            affected.changeOrderIndex(affected.getOrderIndex() + delta);
+        List<Todo> changedTodos = Todo.reorder(target, targetOrderIndex, affectedTodos);
+
+        if (!changedTodos.isEmpty()) {
+            todoRepository.saveAll(changedTodos);
         }
-
-        todo.changeOrderIndex(targetOrderIndex);
-
-        todoRepository.saveAll(affectedTodos);
-        todoRepository.save(todo);
     }
 
     public Todo updateAssignees(Long userId, Long todoId, UpdateAssigneesRequest request) {
