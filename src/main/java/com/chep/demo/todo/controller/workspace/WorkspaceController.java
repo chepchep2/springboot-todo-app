@@ -1,9 +1,12 @@
 package com.chep.demo.todo.controller.workspace;
 
 import com.chep.demo.todo.domain.workspace.Workspace;
+import com.chep.demo.todo.domain.workspace.WorkspaceMember;
 import com.chep.demo.todo.dto.workspace.CreateWorkspaceRequest;
+import com.chep.demo.todo.dto.workspace.AddWorkspaceMemberRequest;
 import com.chep.demo.todo.dto.workspace.UpdateWorkspaceRequest;
 import com.chep.demo.todo.dto.workspace.WorkspaceResponse;
+import com.chep.demo.todo.dto.workspace.WorkspaceMemberResponse;
 import com.chep.demo.todo.service.workspace.WorkspaceService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -36,7 +39,7 @@ public class WorkspaceController {
     @GetMapping
     ResponseEntity<List<WorkspaceResponse>> getWorkspaces() {
         Long userId = currentUserId();
-        List<WorkspaceResponse> responses = workspaceService.getWorkspaces(userId)
+        List<WorkspaceResponse> responses = workspaceService.getMyWorkspaces(userId)
                 .stream()
                 .map(this::toResponse)
                 .toList();
@@ -92,6 +95,63 @@ public class WorkspaceController {
                 workspace.getDescription(),
                 workspace.isPersonal(),
                 workspace.getOwner().getId()
+        );
+    }
+
+    @Operation(summary = "워크스페이스 멤버 목록", description = "해당 워크스페이스의 활성 멤버 목록을 반환합니다.")
+    @GetMapping("/{workspaceId}/members")
+    ResponseEntity<List<WorkspaceMemberResponse>> getMembers(@PathVariable Long workspaceId) {
+        Long userId = currentUserId();
+        List<WorkspaceMemberResponse> responses = workspaceService.getMembers(workspaceId, userId)
+                .stream()
+                .map(this::toMemberResponse)
+                .toList();
+        return ResponseEntity.ok(responses);
+    }
+
+    @Operation(summary = "내 멤버십 정보", description = "해당 워크스페이스에서 내 역할과 상태를 조회합니다.")
+    @GetMapping("/{workspaceId}/members/me")
+    ResponseEntity<WorkspaceMemberResponse> getMyMembership(@PathVariable Long workspaceId) {
+        Long userId = currentUserId();
+        WorkspaceMember me = workspaceService.getMyMembership(workspaceId, userId);
+        return ResponseEntity.ok(toMemberResponse(me));
+    }
+
+    @Operation(summary = "멤버 추가", description = "Owner가 새로운 멤버를 추가합니다.")
+    @PostMapping("/{workspaceId}/members")
+    ResponseEntity<WorkspaceMemberResponse> addMember(
+            @PathVariable Long workspaceId,
+            @Valid @RequestBody AddWorkspaceMemberRequest request
+    ) {
+        Long userId = currentUserId();
+        WorkspaceMember member = workspaceService.addMember(workspaceId, userId, request.userId());
+        return ResponseEntity.ok(toMemberResponse(member));
+    }
+
+    @Operation(summary = "멤버 제거", description = "Owner가 특정 멤버를 제거합니다.")
+    @DeleteMapping("/{workspaceId}/members/{memberId}")
+    ResponseEntity<Void> removeMember(@PathVariable Long workspaceId, @PathVariable Long memberId) {
+        Long userId = currentUserId();
+        workspaceService.removeMember(workspaceId, userId, memberId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "멤버 탈퇴", description = "멤버가 스스로 워크스페이스를 떠납니다.")
+    @PostMapping("/{workspaceId}/members/leave")
+    ResponseEntity<Void> leave(@PathVariable Long workspaceId) {
+        Long userId = currentUserId();
+        workspaceService.leave(workspaceId, userId);
+        return ResponseEntity.noContent().build();
+    }
+
+    private WorkspaceMemberResponse toMemberResponse(WorkspaceMember member) {
+        return new WorkspaceMemberResponse(
+                member.getId(),
+                member.getUser().getId(),
+                member.getRole(),
+                member.getStatus(),
+                member.getJoinedAt(),
+                member.getStatusChangedAt()
         );
     }
 
