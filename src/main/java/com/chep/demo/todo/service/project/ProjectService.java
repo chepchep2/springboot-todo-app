@@ -2,8 +2,9 @@ package com.chep.demo.todo.service.project;
 
 import com.chep.demo.todo.domain.project.Project;
 import com.chep.demo.todo.domain.project.ProjectRepository;
+import com.chep.demo.todo.domain.workspace.Workspace;
 import com.chep.demo.todo.domain.workspace.WorkspaceMember;
-import com.chep.demo.todo.domain.workspace.WorkspaceMemberRepository;
+import com.chep.demo.todo.domain.workspace.WorkspaceRepository;
 import com.chep.demo.todo.exception.project.ProjectNotFoundException;
 import com.chep.demo.todo.exception.project.ProjectOperationException;
 import com.chep.demo.todo.exception.workspace.WorkspaceAccessDeniedException;
@@ -16,34 +17,34 @@ import java.util.List;
 @Transactional
 public class ProjectService {
     private final ProjectRepository projectRepository;
-    private final WorkspaceMemberRepository workspaceMemberRepository;
+    private final WorkspaceRepository workspaceRepository;
 
     public ProjectService(ProjectRepository projectRepository,
-                          WorkspaceMemberRepository workspaceMemberRepository) {
+                          WorkspaceRepository workspaceRepository) {
         this.projectRepository = projectRepository;
-        this.workspaceMemberRepository = workspaceMemberRepository;
+        this.workspaceRepository = workspaceRepository;
     }
 
     @Transactional(readOnly = true)
     public List<Project> getProjects(Long workspaceId, Long userId) {
-        requireActiveMember(workspaceId, userId);
+        loadWorkspaceMember(workspaceId, userId);
         return projectRepository.findAllByWorkspaceId(workspaceId);
     }
 
     public Project createProject(Long workspaceId, Long userId, String name, String description) {
-        WorkspaceMember member = requireActiveMember(workspaceId, userId);
+        WorkspaceMember member = loadWorkspaceMember(workspaceId, userId);
         Project project = Project.of(member.getWorkspace(), member.getUser(), name, description);
         return projectRepository.save(project);
     }
 
     @Transactional(readOnly = true)
     public Project getProject(Long workspaceId, Long projectId, Long userId) {
-        requireActiveMember(workspaceId, userId);
+        loadWorkspaceMember(workspaceId, userId);
         return findProject(workspaceId, projectId);
     }
 
     public Project updateProject(Long workspaceId, Long projectId, Long userId, String name, String description) {
-        WorkspaceMember member = requireActiveMember(workspaceId, userId);
+        WorkspaceMember member = loadWorkspaceMember(workspaceId, userId);
         Project project = findProject(workspaceId, projectId);
         ensureCanModifyProject(member, project);
         project.changeNameAndDescription(name, description);
@@ -51,7 +52,7 @@ public class ProjectService {
     }
 
     public void deleteProject(Long workspaceId, Long projectId, Long userId) {
-        WorkspaceMember member = requireActiveMember(workspaceId, userId);
+        WorkspaceMember member = loadWorkspaceMember(workspaceId, userId);
         Project project = findProject(workspaceId, projectId);
         if (project.isDefaultProject()) {
             throw new ProjectOperationException("Default project cannot be deleted");
@@ -61,13 +62,11 @@ public class ProjectService {
         projectRepository.save(project);
     }
 
-    private WorkspaceMember requireActiveMember(Long workspaceId, Long userId) {
-        return workspaceMemberRepository.findByWorkspaceIdAndUserIdAndStatus(
-                        workspaceId,
-                        userId,
-                        WorkspaceMember.Status.ACTIVE
-                )
-                .orElseThrow(() -> new WorkspaceAccessDeniedException("Only workspace members can access this resource."));
+    private WorkspaceMember loadWorkspaceMember(Long workspaceId, Long userId) {
+        Workspace workspace = workspaceRepository.findByIdWithMembers(workspaceId)
+                .orElseThrow(() -> new WorkspaceAccessDeniedException("Workspace not found."));
+
+        return workspace.requireActiveMember(userId);
     }
 
     private Project findProject(Long workspaceId, Long projectId) {
