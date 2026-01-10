@@ -134,6 +134,14 @@ public class WorkspaceMember {
         return this.role == Role.OWNER;
     }
 
+    public boolean isActive() {
+        return this.status == Status.ACTIVE;
+    }
+
+    public boolean hasUser(Long userId) {
+        return this.user != null && this.user.getId().equals(userId);
+    }
+
     public Long getId() {
         return id;
     }

@@ -7,6 +7,12 @@ import jakarta.validation.constraints.Size;
 import org.hibernate.annotations.Where;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 
 @Entity
 @Table(name = "workspaces")
@@ -45,9 +51,12 @@ public class Workspace {
     @Column(name = "deleted_at")
     private Instant deletedAt;
 
+    @OneToMany(mappedBy = "workspace", cascade = CascadeType.ALL, orphanRemoval = true)
+    private final Set<WorkspaceMember> members = new HashSet<>();
+
     protected Workspace() {}
 
-    private  Workspace(User owner, String name, String description, boolean personal) {
+    private Workspace(User owner, String name, String description, boolean personal) {
         if (owner == null) {
             throw new IllegalArgumentException("owner must not be null");
         }
@@ -62,6 +71,8 @@ public class Workspace {
         this.personal = personal;
         this.createdAt = Instant.now();
         this.updatedAt = null;
+
+        members.add(WorkspaceMember.owner(this, owner));
     }
 
     public static class Builder {
@@ -100,7 +111,6 @@ public class Workspace {
     }
 
     public static Workspace personal(User owner) {
-//        return new Workspace(owner, "Personal", "Personal Workspace", true);
         return Workspace.builder()
                 .owner(owner)
                 .name("Personal")
@@ -132,8 +142,93 @@ public class Workspace {
         this.deletedAt = Instant.now();
     }
 
+    public WorkspaceMember addMember(User user) {
+        if (personal) {
+            throw new IllegalStateException("cannot modify members of a personal workspace");
+        }
+        return addOrRestoreMember(user);
+    }
+
+    public WorkspaceMember requireActiveMember(Long userId) {
+        return members.stream()
+                .filter(member -> member.hasUser(userId) && member.isActive())
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("workspace member not found"));
+    }
+
+    public WorkspaceMember requireMember(Long memberId) {
+        return members.stream()
+                .filter(member -> Objects.equals(member.getId(), memberId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("workspace member not found"));
+    }
+
+    public List<WorkspaceMember> getActiveMembers() {
+        return members.stream()
+                .filter(WorkspaceMember::isActive)
+                .toList();
+    }
+
+    public long countActiveMembers() {
+        return members.stream()
+                .filter(WorkspaceMember::isActive)
+                .count();
+    }
+
+    public void kickMember(Long memberId) {
+        WorkspaceMember member = requireMember(memberId);
+        if (member.isOwner()) {
+            throw new IllegalStateException("workspace owner cannot be removed");
+        }
+        member.kick();
+    }
+
+    public void leave(Long userId) {
+        WorkspaceMember member = requireActiveMember(userId);
+        if (member.isOwner()) {
+            throw new IllegalStateException("workspace owner cannot leave directly");
+        }
+        member.leave();
+    }
+
+    public boolean hasActiveMember(Long userId) {
+        return members.stream()
+                .anyMatch(member -> member.hasUser(userId) && member.isActive());
+    }
+
     public boolean isPersonal() {
         return personal;
+    }
+
+    public boolean isOwner(Long userId) {
+        return owner != null && owner.getId().equals(userId);
+    }
+
+    public List<WorkspaceMember> getMembers() {
+        return new ArrayList<>(members);
+    }
+
+    private WorkspaceMember addOrRestoreMember(User user) {
+        if (user == null) {
+            throw new IllegalArgumentException("user must not be null");
+        }
+
+        Optional<WorkspaceMember> existing = members.stream()
+                .filter(member -> member.hasUser(user.getId()))
+                .findFirst();
+
+        if (existing.isPresent()) {
+            WorkspaceMember member = existing.get();
+            if (member.isActive()) {
+                throw new IllegalStateException("user is already an active member");
+            }
+            member.restoreActive();
+            return member;
+        }
+
+        WorkspaceMember member = WorkspaceMember.member(this, user);
+        members.add(member);
+        return member;
     }
 
     public Long getId() {
