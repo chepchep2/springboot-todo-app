@@ -1,6 +1,7 @@
 package com.chep.demo.todo.domain.workspace;
 
 import com.chep.demo.todo.domain.user.User;
+import com.chep.demo.todo.exception.workspace.WorkspaceAccessDeniedException;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -139,6 +140,12 @@ public class Workspace {
     }
 
     public void markDeleted() {
+        if (personal) {
+            throw new IllegalStateException("Personal workspace cannot be deleted");
+        }
+        if (countActiveMembers() > 1) {
+            throw new IllegalStateException("Cannot delete while other members remain active");
+        }
         this.deletedAt = Instant.now();
     }
 
@@ -161,6 +168,13 @@ public class Workspace {
                 .filter(member -> Objects.equals(member.getId(), memberId))
                 .findFirst()
                 .orElseThrow(() -> new IllegalStateException("workspace member not found"));
+    }
+
+    public void requireOwnerMember(Long userId) {
+        WorkspaceMember member = requireActiveMember(userId);
+        if (!member.isOwner()) {
+            throw new WorkspaceAccessDeniedException("only owner can perform this action");
+        }
     }
 
     public List<WorkspaceMember> getActiveMembers() {
@@ -198,10 +212,6 @@ public class Workspace {
 
     public boolean isPersonal() {
         return personal;
-    }
-
-    public boolean isOwner(Long userId) {
-        return owner != null && owner.getId().equals(userId);
     }
 
     public List<WorkspaceMember> getMembers() {
