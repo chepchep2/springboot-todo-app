@@ -10,6 +10,7 @@ import com.chep.demo.todo.exception.workspace.WorkspaceMemberNotFoundException;
 import com.chep.demo.todo.exception.workspace.WorkspaceMemberOperationException;
 import com.chep.demo.todo.exception.workspace.WorkspaceNotFoundException;
 import com.chep.demo.todo.exception.workspace.WorkspaceOperationException;
+import com.chep.demo.todo.exception.workspace.WorkspaceOwnerNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,7 +37,7 @@ public class WorkspaceService {
 
     public Workspace createWorkspace(Long ownerId, String name, String description) {
         User owner = userRepository.findById(ownerId)
-                .orElseThrow(() -> new IllegalArgumentException("owner not found"));
+                .orElseThrow(() -> new WorkspaceOwnerNotFoundException("Owner not found."));
 
         Workspace workspace = Workspace.of(owner, name, description);
         return workspaceRepository.save(workspace);
