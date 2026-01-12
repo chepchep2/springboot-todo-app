@@ -6,7 +6,7 @@ import com.chep.demo.todo.exception.workspace.WorkspaceMemberNotFoundException;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import org.hibernate.annotations.Where;
+import org.hibernate.annotations.SQLRestriction;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -18,7 +18,7 @@ import java.util.Set;
 
 @Entity
 @Table(name = "workspaces")
-@Where(clause = "deleted_at IS NULL")
+@SQLRestriction("deleted_at IS NULL")
 public class Workspace {
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "workspace_id_gen")
