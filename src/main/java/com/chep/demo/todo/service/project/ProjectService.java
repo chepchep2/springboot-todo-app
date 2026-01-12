@@ -6,7 +6,6 @@ import com.chep.demo.todo.domain.workspace.Workspace;
 import com.chep.demo.todo.domain.workspace.WorkspaceMember;
 import com.chep.demo.todo.domain.workspace.WorkspaceRepository;
 import com.chep.demo.todo.exception.project.ProjectNotFoundException;
-import com.chep.demo.todo.exception.project.ProjectOperationException;
 import com.chep.demo.todo.exception.workspace.WorkspaceAccessDeniedException;
 import com.chep.demo.todo.exception.workspace.WorkspaceNotFoundException;
 import org.springframework.stereotype.Service;
@@ -55,9 +54,6 @@ public class ProjectService {
     public void deleteProject(Long workspaceId, Long projectId, Long userId) {
         WorkspaceMember member = loadWorkspaceMember(workspaceId, userId);
         Project project = findProject(workspaceId, projectId);
-        if (project.isDefaultProject()) {
-            throw new ProjectOperationException("Default project cannot be deleted");
-        }
         ensureCanModifyProject(member, project);
         project.markDeleted();
         projectRepository.save(project);

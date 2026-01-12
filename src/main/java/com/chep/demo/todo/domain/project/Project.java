@@ -2,6 +2,7 @@ package com.chep.demo.todo.domain.project;
 
 import com.chep.demo.todo.domain.user.User;
 import com.chep.demo.todo.domain.workspace.Workspace;
+import com.chep.demo.todo.exception.project.ProjectOperationException;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -146,6 +147,9 @@ public class Project {
     }
 
     public void markDeleted() {
+        if (defaultProject) {
+            throw new ProjectOperationException("Default project cannot be deleted");
+        }
         this.deletedAt = Instant.now();
     }
 
