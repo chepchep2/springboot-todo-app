@@ -72,15 +72,15 @@ public class WorkspaceService {
         return added;
     }
 
-    public void removeMember(Long workspaceId, Long requesterId, Long memberId) {
+    public void removeMember(Long workspaceId, Long requesterId, Long workspaceMemberId) {
         Workspace workspace = getWorkspaceWithMembers(workspaceId);
         workspace.requireOwnerMember(requesterId);
 
-        if (memberId == null) {
+        if (workspaceMemberId == null) {
             throw new WorkspaceMemberNotFoundException("Workspace member not found.");
         }
 
-        workspace.kickMember(memberId);
+        workspace.kickMember(workspaceMemberId);
         workspaceRepository.save(workspace);
     }
 

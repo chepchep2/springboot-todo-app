@@ -130,9 +130,9 @@ public class WorkspaceController {
 
     @Operation(summary = "멤버 제거", description = "Owner가 특정 멤버를 제거합니다.")
     @DeleteMapping("/{workspaceId}/members/{memberId}")
-    ResponseEntity<Void> removeMember(@PathVariable Long workspaceId, @PathVariable Long memberId) {
+    ResponseEntity<Void> removeMember(@PathVariable Long workspaceId, @PathVariable Long workspaceMemberId) {
         Long userId = currentUserId();
-        workspaceService.removeMember(workspaceId, userId, memberId);
+        workspaceService.removeMember(workspaceId, userId, workspaceMemberId);
         return ResponseEntity.noContent().build();
     }
 
@@ -144,14 +144,14 @@ public class WorkspaceController {
         return ResponseEntity.noContent().build();
     }
 
-    private WorkspaceMemberResponse toMemberResponse(WorkspaceMember member) {
+    private WorkspaceMemberResponse toMemberResponse(WorkspaceMember workspaceMember) {
         return new WorkspaceMemberResponse(
-                member.getId(),
-                member.getUser().getId(),
-                member.getRole(),
-                member.getStatus(),
-                member.getJoinedAt(),
-                member.getStatusChangedAt()
+                workspaceMember.getId(),
+                workspaceMember.getUser().getId(),
+                workspaceMember.getRole(),
+                workspaceMember.getStatus(),
+                workspaceMember.getJoinedAt(),
+                workspaceMember.getStatusChangedAt()
         );
     }
 
