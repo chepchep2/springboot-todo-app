@@ -13,6 +13,7 @@ public interface WorkspaceRepository extends JpaRepository<Workspace, Long> {
             SELECT DISTINCT w FROM Workspace w
             LEFT JOIN FETCH w.members m
             WHERE w.id = :workspaceId
+              AND w.deletedAt IS NULL
             """)
     Optional<Workspace> findByIdWithMembers(@Param("workspaceId") Long workspaceId);
 
@@ -21,6 +22,7 @@ public interface WorkspaceRepository extends JpaRepository<Workspace, Long> {
             LEFT JOIN FETCH w.members m
             WHERE m.user.id = :userId
               AND m.status = :status
+              AND w.deletedAt IS NULL
             """)
     List<Workspace> findAllByMemberUserIdAndStatus(@Param("userId") Long userId,
                                                    @Param("status") WorkspaceMember.Status status);

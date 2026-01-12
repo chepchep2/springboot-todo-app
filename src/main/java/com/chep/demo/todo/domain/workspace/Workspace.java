@@ -2,6 +2,7 @@ package com.chep.demo.todo.domain.workspace;
 
 import com.chep.demo.todo.domain.user.User;
 import com.chep.demo.todo.exception.workspace.WorkspaceAccessDeniedException;
+import com.chep.demo.todo.exception.workspace.WorkspaceMemberNotFoundException;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -160,14 +161,14 @@ public class Workspace {
         return members.stream()
                 .filter(member -> member.hasUser(userId) && member.isActive())
                 .findFirst()
-                .orElseThrow(() -> new IllegalStateException("workspace member not found"));
+                .orElseThrow(() -> new WorkspaceMemberNotFoundException("Workspace member not found."));
     }
 
     public WorkspaceMember requireMember(Long memberId) {
         return members.stream()
                 .filter(member -> Objects.equals(member.getId(), memberId))
                 .findFirst()
-                .orElseThrow(() -> new IllegalStateException("workspace member not found"));
+                .orElseThrow(() -> new WorkspaceMemberNotFoundException("Workspace member not found."));
     }
 
     public void requireOwnerMember(Long userId) {
