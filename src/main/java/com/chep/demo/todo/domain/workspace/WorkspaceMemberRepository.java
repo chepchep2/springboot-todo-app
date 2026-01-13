@@ -11,25 +11,26 @@ import java.util.Optional;
 
 public interface WorkspaceMemberRepository extends JpaRepository<WorkspaceMember, Long> {
 
-    @Query("""
-            SELECT wm FROM WorkspaceMember wm
-            JOIN FETCH wm.user u
-            WHERE wm.workspace.id = :workspaceId
-                AND wm.status = :status
-                AND (
-                    :cursorJoinedAt IS NULL
-                    OR wm.joinedAt < :cursorJoinedAt
-                    OR (wm.joinedAt = :cursorJoinedAt AND wm.id < :cursorMemberId)
+    @Query(value = """
+            SELECT wm.*
+            FROM workspace_members wm
+                     JOIN users u ON wm.user_id = u.id
+            WHERE wm.workspace_id = :workspaceId
+              AND wm.status = :status
+              AND (
+                    CAST(:cursorJoinedAt AS timestamptz) IS NULL
+                    OR wm.joined_at < CAST(:cursorJoinedAt AS timestamptz)
+                    OR (wm.joined_at = CAST(:cursorJoinedAt AS timestamptz) AND wm.id < :cursorMemberId)
                 )
-                AND (
-                    :keyword IS NULL
-                    OR LOWER(u.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
-                    OR LOWER(u.email) LIKE LOWER(CONCAT('%', :keyword, '%'))
+              AND (
+                    CAST(:keyword AS text) IS NULL
+                    OR LOWER(u.name::text) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                    OR LOWER(u.email::text) LIKE LOWER(CONCAT('%', :keyword, '%'))
                 )
-            ORDER BY wm.joinedAt DESC, wm.id DESC
-            """)
+            ORDER BY wm.joined_at DESC, wm.id DESC
+            """, nativeQuery = true)
     List<WorkspaceMember> findMembersWithCursor(@Param("workspaceId") Long workspaceId,
-                                                @Param("status") WorkspaceMember.Status status,
+                                                @Param("status") String status,
                                                 @Param("cursorJoinedAt") Instant cursorJoinedAt,
                                                 @Param("cursorMemberId") Long cursorMemberId,
                                                 @Param("keyword") String keyword,

@@ -49,6 +49,7 @@ public class WorkspaceMemberService {
             requireActiveMember(workspaceId, userId);
 
             WorkspaceMember.Status effectiveStatus = (status == null) ? WorkspaceMember.Status.ACTIVE : status;
+            String effectiveStatusValue = effectiveStatus.name();
 
             if (limit <= 0) limit = 20;
 
@@ -61,7 +62,7 @@ public class WorkspaceMemberService {
 
             List<WorkspaceMember> members = workspaceMemberRepository.findMembersWithCursor(
                     workspaceId,
-                    effectiveStatus,
+                    effectiveStatusValue,
                     cursorInstant,
                     cursorMemberId,
                     keyword,
