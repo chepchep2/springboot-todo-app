@@ -9,7 +9,6 @@ import com.chep.demo.todo.exception.workspace.WorkspaceAccessDeniedException;
 import com.chep.demo.todo.exception.workspace.WorkspaceMemberNotFoundException;
 import com.chep.demo.todo.exception.workspace.WorkspaceMemberOperationException;
 import com.chep.demo.todo.exception.workspace.WorkspaceNotFoundException;
-import com.chep.demo.todo.exception.workspace.WorkspaceOperationException;
 import com.chep.demo.todo.exception.workspace.WorkspaceOwnerNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

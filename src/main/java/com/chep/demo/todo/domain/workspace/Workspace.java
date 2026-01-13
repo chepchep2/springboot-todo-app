@@ -3,6 +3,7 @@ package com.chep.demo.todo.domain.workspace;
 import com.chep.demo.todo.domain.user.User;
 import com.chep.demo.todo.exception.workspace.WorkspaceAccessDeniedException;
 import com.chep.demo.todo.exception.workspace.WorkspaceMemberNotFoundException;
+import com.chep.demo.todo.exception.workspace.WorkspacePolicyViolationException;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -142,17 +143,17 @@ public class Workspace {
 
     public void markDeleted() {
         if (personal) {
-            throw new IllegalStateException("Personal workspace cannot be deleted");
+            throw new WorkspacePolicyViolationException("Personal workspace cannot be deleted");
         }
         if (countActiveMembers() > 1) {
-            throw new IllegalStateException("Cannot delete while other members remain active");
+            throw new WorkspacePolicyViolationException("Cannot delete while other members remain active");
         }
         this.deletedAt = Instant.now();
     }
 
     public WorkspaceMember addMember(User user) {
         if (personal) {
-            throw new IllegalStateException("cannot modify members of a personal workspace");
+            throw new WorkspacePolicyViolationException("Cannot modify members of a personal workspace");
         }
         return addOrRestoreMember(user);
     }
@@ -193,7 +194,7 @@ public class Workspace {
     public void kickMember(Long memberId) {
         WorkspaceMember member = requireMember(memberId);
         if (member.isOwner()) {
-            throw new IllegalStateException("workspace owner cannot be removed");
+            throw new WorkspacePolicyViolationException("workspace owner cannot be removed");
         }
         member.kick();
     }
@@ -201,7 +202,7 @@ public class Workspace {
     public void leave(Long userId) {
         WorkspaceMember member = requireActiveMember(userId);
         if (member.isOwner()) {
-            throw new IllegalStateException("workspace owner cannot leave directly");
+            throw new WorkspacePolicyViolationException("workspace owner cannot leave directly");
         }
         member.leave();
     }

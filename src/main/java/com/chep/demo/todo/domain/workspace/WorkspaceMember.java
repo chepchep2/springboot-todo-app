@@ -1,5 +1,6 @@
 package com.chep.demo.todo.domain.workspace;
 import com.chep.demo.todo.domain.user.User;
+import com.chep.demo.todo.exception.workspace.WorkspacePolicyViolationException;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 
@@ -114,7 +115,7 @@ public class WorkspaceMember {
 
     public void leave() {
         if (this.role == Role.OWNER) {
-            throw new IllegalStateException("owner cannot leave directly");
+            throw new WorkspacePolicyViolationException("owner cannot leave directly");
         }
         this.status = Status.LEFT;
         this.statusChangedAt = Instant.now();
