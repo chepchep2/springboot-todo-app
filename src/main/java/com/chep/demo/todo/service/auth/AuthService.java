@@ -71,7 +71,8 @@ public class AuthService {
 
     public AuthResult refresh(String refreshToken) {
         // 1. refreshToken 검증
-        if (!jwtTokenProvider.validateToken(refreshToken)) {
+        if (!jwtTokenProvider.validateToken(refreshToken)
+                || !jwtTokenProvider.isRefreshToken(refreshToken)) {
             throw new AuthenticationException("Invalid refresh token");
         }
 
