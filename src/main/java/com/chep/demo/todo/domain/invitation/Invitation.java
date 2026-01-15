@@ -166,7 +166,7 @@ public class Invitation {
         return user;
     }
 
-    private static String normalizeEmail(String rawEmail) {
+    public static String normalizeEmail(String rawEmail) {
         if (rawEmail == null) {
             throw new InvitationValidationException("sentEmail must not be null");
         }
