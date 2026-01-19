@@ -25,7 +25,7 @@ public class TodoService {
     private final TodoRepository todoRepository;
     private final UserRepository userRepository;
 
-    public TodoService(TodoRepository todoRepository, AuthService authService, UserRepository userRepository) {
+    public TodoService(TodoRepository todoRepository, UserRepository userRepository) {
         this.todoRepository = todoRepository;
         this.userRepository = userRepository;
     }
@@ -40,8 +40,26 @@ public class TodoService {
                 .orElseThrow(() -> new AuthenticationException("User not found"));
 
         Integer orderIndex = request.orderIndex();
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new AuthenticationException("User not found"));
+        Long totalCounting = todoRepository.countByUserId(userId);
+        int totalCount = totalCounting.intValue();
+
         if (orderIndex == null) {
-            orderIndex = todoRepository.countByUserId(userId).intValue();
+            orderIndex = totalCount;
+        } else {
+            // 0 ~ totalCount 사이만 허용
+            if (orderIndex < 0 || orderIndex > totalCount) {
+                throw new IllegalArgumentException("orderIndex out of range: 0 ~ " + totalCount);
+            }
+
+            if (orderIndex < totalCount) {
+                List<Todo> affectedTodos = todoRepository.findByUserIdAndOrderIndexBetween(userId, orderIndex, totalCount - 1);
+
+                shiftOrderIndexRange(affectedTodos, + 1);
+
+                todoRepository.saveAll(affectedTodos);
+            }
         }
 
         Set<User> assignees = resolveAssignees(request.assigneeIds());
@@ -57,6 +75,12 @@ public class TodoService {
         todo.changeAssignees(assignees);
 
         return todoRepository.save(todo);
+    }
+
+    private void shiftOrderIndexRange(List<Todo> affectedTodos, int delta) {
+        for (Todo affected: affectedTodos) {
+            affected.changeOrderIndex(affected.getOrderIndex() + delta);
+        }
     }
 
     private Set<User> resolveAssignees(List<Long> assigneeIds) {
@@ -84,7 +108,15 @@ public class TodoService {
         Todo todo = todoRepository.findByIdAndUserId(todoId, userId)
                 .orElseThrow(() -> new TodoNotFoundException("Todo not found"));
 
+        int deletedOrderIndex = todo.getOrderIndex();
+
         todoRepository.softDelete(todo);
+
+        List<Todo> affectedTodos = todoRepository.findByUserIdAndOrderIndexGreaterThan(userId, deletedOrderIndex);
+
+        shiftOrderIndexRange(affectedTodos, - 1);
+
+        todoRepository.saveAll(affectedTodos);
     }
 
     public void toggleTodoComplete(Long userId, Long todoId) {
@@ -122,11 +154,7 @@ public class TodoService {
             end = targetOrderIndex;
         }
 
-        List<Todo> affectedTodos = todoRepository.findByUserIdAndOrderIndexBetween(
-                userId,
-                start,
-                end
-        );
+        List<Todo> affectedTodos = todoRepository.findByUserIdAndOrderIndexBetween(userId, start, end);
 
         List<Todo> changedTodos = Todo.reorder(target, targetOrderIndex, affectedTodos);
 
