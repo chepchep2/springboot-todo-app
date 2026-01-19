@@ -8,7 +8,9 @@ import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.Where;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 @Entity
@@ -154,6 +156,35 @@ public class Todo {
         this.title = title;
         this.content = content;
         this.updatedAt = Instant.now();
+    }
+
+    public static List<Todo> reorder(Todo target, int targetIndex, List<Todo> affectedTodos) {
+        if (target == null) {
+            throw new IllegalArgumentException("target must not be null");
+        }
+
+        if (targetIndex < 0) {
+            throw new IllegalArgumentException("targetIndex must be non-negative");
+        }
+
+        int currentIndex = target.getOrderIndex();
+        if (targetIndex == currentIndex) {
+            return new ArrayList<>();
+        }
+
+        int delta = targetIndex < currentIndex ? 1 : -1;
+
+        List<Todo> changed = new ArrayList<>();
+        if (affectedTodos != null) {
+            for (Todo todo : affectedTodos) {
+                todo.changeOrderIndex(todo.getOrderIndex() + delta);
+                changed.add(todo);
+            }
+        }
+
+        target.changeOrderIndex(targetIndex);
+        changed.add(target);
+        return changed;
     }
 
     public void changeOrderIndex(Integer orderIndex) {

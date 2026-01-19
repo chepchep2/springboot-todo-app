@@ -1,6 +1,5 @@
 package com.chep.demo.todo.security;
 
-import com.chep.demo.todo.domain.user.User;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
@@ -33,6 +32,10 @@ public class JwtTokenProvider {
         // 가져온 accessToken와 refreshToken에 * 1000한다. 밀리초로 바꿔주기 위해
     }
 
+    private static final String CLAIM_TOKEN_TYPE = "token_type";
+    private static final String TOKEN_TYPE_ACCESS = "ACCESS";
+    private static final String TOKEN_TYPE_REFRESH = "REFRESH";
+
     public String generateAccessToken(Long userId) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + accessExpirationMillis);
@@ -42,6 +45,7 @@ public class JwtTokenProvider {
                 .setSubject(userId.toString())
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
+                .claim(CLAIM_TOKEN_TYPE, TOKEN_TYPE_ACCESS)
                 .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
         // Jwts 내부 메서드인 builder를 써서
@@ -60,6 +64,7 @@ public class JwtTokenProvider {
                 .setSubject(userId.toString())
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
+                .claim(CLAIM_TOKEN_TYPE, TOKEN_TYPE_REFRESH)
                 // generateAccessToken이랑 만료시간만 다르다.
                 .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
@@ -84,6 +89,24 @@ public class JwtTokenProvider {
         } catch (JwtException | IllegalArgumentException e) {
             // Multi-catch로 간견할게 | 표시 (두 예외를 한 번에 처리)
             // 유효하지 않은 토큰
+            return false;
+        }
+    }
+
+    public boolean isAccessToken(String token) {
+        return hasTokenType(token, TOKEN_TYPE_ACCESS);
+    }
+
+    public boolean isRefreshToken(String token) {
+        return hasTokenType(token, TOKEN_TYPE_REFRESH);
+    }
+
+    private boolean hasTokenType(String token, String expectedType) {
+        try {
+            Claims claims = parseClaims(token);
+            String tokenType = claims.get(CLAIM_TOKEN_TYPE, String.class);
+            return expectedType.equals(tokenType);
+        } catch (JwtException | IllegalArgumentException e) {
             return false;
         }
     }
