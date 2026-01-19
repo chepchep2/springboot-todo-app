@@ -11,7 +11,6 @@ import com.chep.demo.todo.dto.todo.UpdateDueDateRequest;
 import com.chep.demo.todo.dto.todo.UpdateTodoRequest;
 import com.chep.demo.todo.exception.auth.AuthenticationException;
 import com.chep.demo.todo.exception.todo.TodoNotFoundException;
-import com.chep.demo.todo.service.auth.AuthService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,8 +39,6 @@ public class TodoService {
                 .orElseThrow(() -> new AuthenticationException("User not found"));
 
         Integer orderIndex = request.orderIndex();
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new AuthenticationException("User not found"));
         Long totalCounting = todoRepository.countByUserId(userId);
         int totalCount = totalCounting.intValue();
 
