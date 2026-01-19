@@ -15,13 +15,16 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
 
-    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtTokenProvider jwtTokenProvider) {
+    public AuthService(
+            UserRepository userRepository,
+            PasswordEncoder passwordEncoder,
+            JwtTokenProvider jwtTokenProvider
+    ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenProvider = jwtTokenProvider;
     }
 
-    @Transactional
     public AuthResult register(String email, String password, String name) {
         // 이메일 중복 체크
         if (userRepository.existsByEmail(email)) {
@@ -32,17 +35,13 @@ public class AuthService {
         String encodedPassword = passwordEncoder.encode(password);
 
         // user 생성
-        User user = User.builder()
-                .name(name)
-                .email(email)
-                .password(encodedPassword)
-                .build();
-
+        User user = User.register(name, email, encodedPassword);
         User saved = userRepository.save(user);
+
         String accessToken = jwtTokenProvider.generateAccessToken(saved.getId());
         String refreshToken = jwtTokenProvider.generateRefreshToken(saved.getId());
 
-        return new AuthResult(user, accessToken, refreshToken);
+        return new AuthResult(saved, accessToken, refreshToken);
     }
 
     public AuthResult login(String email, String rawPassword) {

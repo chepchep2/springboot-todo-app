@@ -1,8 +1,14 @@
 package com.chep.demo.todo.domain.user;
 
+import com.chep.demo.todo.domain.user.event.UserRegisteredEvent;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import org.springframework.data.domain.AfterDomainEventPublication;
+import org.springframework.data.domain.DomainEvents;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "users")
@@ -64,6 +70,30 @@ public class User {
 
     public static Builder builder() {
         return new Builder();
+    }
+
+    @Transient
+    private final List<UserRegisteredEvent> domainEvents = new ArrayList<>();
+
+    public static User register(String name, String email, String encodedPassword) {
+        User user = User.builder()
+                .name(name)
+                .email(email)
+                .password(encodedPassword)
+                .build();
+
+        user.domainEvents.add(new UserRegisteredEvent(user));
+        return user;
+    }
+
+    @DomainEvents
+    public List<UserRegisteredEvent> getDomainEvents() {
+        return domainEvents;
+    }
+
+    @AfterDomainEventPublication
+    public void clearDomainEvents() {
+        domainEvents.clear();
     }
 
     public Long getId() { return id; }
