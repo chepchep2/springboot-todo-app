@@ -6,6 +6,6 @@ import java.util.List;
 import java.util.Optional;
 
 public interface InvitationRepository extends JpaRepository<Invitation, Long> {
-    Optional<Invitation> findByInviteCodeAndSentEmail(String code, String sentEmail);
+    Optional<Invitation> findByInviteCodeCodeAndSentEmail(String code, String sentEmail);
     List<Invitation> findByInviteCodeWorkspaceIdAndSentEmailAndStatusIn(Long workspaceId, String sentEmail, List<Invitation.Status> statuses);
 }
