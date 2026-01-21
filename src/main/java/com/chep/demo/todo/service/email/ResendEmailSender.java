@@ -15,8 +15,8 @@ public class ResendEmailSender {
     private final String fromEmail;
 
     public ResendEmailSender(
-            @Value("${resend.api-key") String apiKey,
-            @Value("${resend.from-email") String fromEmail
+            @Value("${resend.api-key}") String apiKey,
+            @Value("${resend.from-email}") String fromEmail
     ) {
         if (apiKey == null || apiKey.isBlank()) {
             throw new IllegalStateException("RESEND_API_KEY is missing");
@@ -48,6 +48,4 @@ public class ResendEmailSender {
         Object id = response == null ? null : response.get("id");
         return id == null ? null : id.toString();
     }
-
-
 }
