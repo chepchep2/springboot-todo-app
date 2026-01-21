@@ -5,6 +5,7 @@ import com.chep.demo.todo.domain.user.User;
 import com.chep.demo.todo.domain.user.UserRepository;
 import com.chep.demo.todo.domain.workspace.Workspace;
 import com.chep.demo.todo.domain.workspace.WorkspaceMember;
+import com.chep.demo.todo.domain.workspace.WorkspaceMemberRepository;
 import com.chep.demo.todo.domain.workspace.WorkspaceRepository;
 import com.chep.demo.todo.dto.invitation.InvitationAcceptResult;
 import com.chep.demo.todo.dto.invitation.InvitationItem;
@@ -15,7 +16,9 @@ import com.chep.demo.todo.exception.invitation.InvitationValidationException;
 import com.chep.demo.todo.exception.invitation.InviteCodeNotFoundException;
 import com.chep.demo.todo.exception.workspace.WorkspaceNotFoundException;
 import com.chep.demo.todo.exception.workspace.WorkspacePolicyViolationException;
+import com.chep.demo.todo.service.email.InvitationEmailTemplate;
 import com.chep.demo.todo.service.email.ResendEmailSender;
+import com.chep.demo.todo.service.invitation.queue.InvitationEmailQueue;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,6 +37,8 @@ public class InvitationService {
     private final UserRepository userRepository;
     private final InviteCodeUsageRepository inviteCodeUsageRepository;
     private final ResendEmailSender resendEmailSender;
+//    private final InvitationEmailQueue invitationEmailQueue;
+    private final WorkspaceMemberRepository workspaceMemberRepository;
 
     public InvitationService(
             InviteCodeRepository inviteCodeRepository,
@@ -41,14 +46,22 @@ public class InvitationService {
             WorkspaceRepository workspaceRepository,
             UserRepository userRepository,
             InviteCodeUsageRepository inviteCodeUsageRepository,
-            ResendEmailSender resendEmailSender) {
+            ResendEmailSender resendEmailSender,
+            WorkspaceMemberRepository workspaceMemberRepository
+//            InvitationEmailQueue invitationEmailQueue
+    ) {
         this.inviteCodeRepository = inviteCodeRepository;
         this.invitationRepository = invitationRepository;
         this.workspaceRepository = workspaceRepository;
         this.userRepository = userRepository;
         this.inviteCodeUsageRepository = inviteCodeUsageRepository;
         this.resendEmailSender = resendEmailSender;
+//        this.invitationEmailQueue = invitationEmailQueue;
+        this.workspaceMemberRepository = workspaceMemberRepository;
     }
+    // 1. 비동기 구현
+    // 2. Redis 사용
+    // 3. 흐름 그림 그리기
 
     public InviteCreateResult createInvitations(Long workspaceId, Long requesterUserId, List<String> emails, Integer expiresInDays) {
         // 1. workspace 조회 + owner 체크
@@ -92,14 +105,12 @@ public class InvitationService {
         List<Invitation> invitations = targetEmails.stream()
                 .map(email -> Invitation.create(owner, inviteCode, email, now))
                 .toList();
+        invitations = invitationRepository.saveAll(invitations);
         // 5. 메일 발송
-        String inviteUrl = buildInviteUrl(inviteCode.getCode());
-        String subject = "[Plannr] " + workspace.getName() + " 초대";
-        String html = "초대 링크: <a href=\"" + inviteUrl + "\">" + inviteUrl + "</a>";
-        // 6. 성공한 것만 SENT 처리
         for (Invitation inv: invitations) {
             try {
-                resendEmailSender.send(inv.getSentEmail(), subject, html);
+                sendInvitationEmail(workspace, inv);
+//                invitationEmailQueue.enqueue(inv.getId());
                 inv.markSent(now);
             } catch (Exception e) {
                 // 실패하면 PENDING 유지
@@ -137,7 +148,7 @@ public class InvitationService {
                 .anyMatch(e -> e.equals(normalizedEmail));
 
         if (alreadyActive) {
-            return new InviteResendResult(List.of());
+            throw new InvitationValidationException("Email already belongs to an active member");
         }
         // 3. 기존 invitation(PENDING/SENT) expire
         List<Invitation> existing = invitationRepository.findByInviteCodeWorkspaceIdAndSentEmailAndStatusIn(workspaceId, normalizedEmail, List.of(Invitation.Status.PENDING, Invitation.Status.SENT));
@@ -150,19 +161,15 @@ public class InvitationService {
         User owner = workspace.getOwner();
         InviteCode newCode = inviteCodeRepository.save(InviteCode.create(workspace, owner, InviteCode.DEFAULT_EXPIRATION_DAYS));
         Invitation newInvitation = invitationRepository.save(Invitation.create(owner, newCode, normalizedEmail, now));
-        String inviteUrl = buildInviteUrl(newCode.getCode());
-        String subject = "[Plannr] " + workspace.getName() + " 초대";
-        String html = "초대 링크: <a href=\"" + inviteUrl + "\">" + inviteUrl + "</a>";
 
         try {
-            resendEmailSender.send(normalizedEmail, subject, html);
-
+            sendInvitationEmail(workspace, newInvitation);
+//            invitationEmailQueue.enqueue(newInvitation.getId());
             newInvitation.markSent(now);
-            invitationRepository.save(newInvitation);
-
         } catch (Exception e) {
             // 실패하면 PENDING 그대로
         }
+        invitationRepository.save(newInvitation);
 
         // 5. 메일 발송(일단은 응답)
         InvitationItem item = new InvitationItem(
@@ -205,6 +212,7 @@ public class InvitationService {
             return toResult(InvitationAcceptResult.Result.ALREADY_MEMBER, workspace, active);
         }
         WorkspaceMember member = workspace.addMember(user);
+        workspaceMemberRepository.saveAndFlush(member);
 
         invitation.accept(email, now);
 
@@ -229,5 +237,11 @@ public class InvitationService {
     private String baseUrl;
     private String buildInviteUrl(String code) {
         return baseUrl + "/invitations/" + code + "/accept";
+    }
+
+    private void sendInvitationEmail(Workspace workspace, Invitation inv) {
+        String inviteUrl = buildInviteUrl(inv.getInviteCode().getCode());
+        var content = InvitationEmailTemplate.invite(workspace.getName(), inviteUrl);
+        resendEmailSender.send(inv.getSentEmail(), content.subject(), content.html());
     }
 }
