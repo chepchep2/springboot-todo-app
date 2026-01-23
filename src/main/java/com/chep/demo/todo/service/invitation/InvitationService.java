@@ -16,9 +16,9 @@ import com.chep.demo.todo.exception.invitation.InvitationValidationException;
 import com.chep.demo.todo.exception.invitation.InviteCodeNotFoundException;
 import com.chep.demo.todo.exception.workspace.WorkspaceNotFoundException;
 import com.chep.demo.todo.exception.workspace.WorkspacePolicyViolationException;
-import com.chep.demo.todo.service.email.InvitationEmailTemplate;
 import com.chep.demo.todo.service.email.ResendEmailSender;
-import com.chep.demo.todo.service.invitation.queue.InvitationEmailQueue;
+import com.chep.demo.todo.service.invitation.event.InvitationsCreatedEvent;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,8 +37,8 @@ public class InvitationService {
     private final UserRepository userRepository;
     private final InviteCodeUsageRepository inviteCodeUsageRepository;
     private final ResendEmailSender resendEmailSender;
-//    private final InvitationEmailQueue invitationEmailQueue;
     private final WorkspaceMemberRepository workspaceMemberRepository;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
     public InvitationService(
             InviteCodeRepository inviteCodeRepository,
@@ -47,8 +47,8 @@ public class InvitationService {
             UserRepository userRepository,
             InviteCodeUsageRepository inviteCodeUsageRepository,
             ResendEmailSender resendEmailSender,
-            WorkspaceMemberRepository workspaceMemberRepository
-//            InvitationEmailQueue invitationEmailQueue
+            WorkspaceMemberRepository workspaceMemberRepository,
+            ApplicationEventPublisher applicationEventPublisher
     ) {
         this.inviteCodeRepository = inviteCodeRepository;
         this.invitationRepository = invitationRepository;
@@ -56,12 +56,9 @@ public class InvitationService {
         this.userRepository = userRepository;
         this.inviteCodeUsageRepository = inviteCodeUsageRepository;
         this.resendEmailSender = resendEmailSender;
-//        this.invitationEmailQueue = invitationEmailQueue;
         this.workspaceMemberRepository = workspaceMemberRepository;
+        this.applicationEventPublisher = applicationEventPublisher;
     }
-    // 1. 비동기 구현
-    // 2. Redis 사용
-    // 3. 흐름 그림 그리기
 
     public InviteCreateResult createInvitations(Long workspaceId, Long requesterUserId, List<String> emails, Integer expiresInDays) {
         // 1. workspace 조회 + owner 체크
@@ -107,16 +104,8 @@ public class InvitationService {
                 .toList();
         invitations = invitationRepository.saveAll(invitations);
         // 5. 메일 발송
-        for (Invitation inv: invitations) {
-            try {
-                sendInvitationEmail(workspace, inv);
-//                invitationEmailQueue.enqueue(inv.getId());
-                inv.markSent(now);
-            } catch (Exception e) {
-                // 실패하면 PENDING 유지
-            }
-        }
-        invitationRepository.saveAll(invitations);
+        List<Long> ids = invitations.stream().map(Invitation::getId).toList();
+        applicationEventPublisher.publishEvent(new InvitationsCreatedEvent(ids));
 
         List<InvitationItem> items = invitations.stream()
                 .map(inv -> new InvitationItem(
@@ -161,17 +150,9 @@ public class InvitationService {
         User owner = workspace.getOwner();
         InviteCode newCode = inviteCodeRepository.save(InviteCode.create(workspace, owner, InviteCode.DEFAULT_EXPIRATION_DAYS));
         Invitation newInvitation = invitationRepository.save(Invitation.create(owner, newCode, normalizedEmail, now));
+        // 5. 메일 발송
+        applicationEventPublisher.publishEvent(new InvitationsCreatedEvent(List.of(newInvitation.getId())));
 
-        try {
-            sendInvitationEmail(workspace, newInvitation);
-//            invitationEmailQueue.enqueue(newInvitation.getId());
-            newInvitation.markSent(now);
-        } catch (Exception e) {
-            // 실패하면 PENDING 그대로
-        }
-        invitationRepository.save(newInvitation);
-
-        // 5. 메일 발송(일단은 응답)
         InvitationItem item = new InvitationItem(
                 newInvitation.getId(),
                 newInvitation.getSentEmail(),
@@ -237,11 +218,5 @@ public class InvitationService {
     private String baseUrl;
     private String buildInviteUrl(String code) {
         return baseUrl + "/invitations/" + code + "/accept";
-    }
-
-    private void sendInvitationEmail(Workspace workspace, Invitation inv) {
-        String inviteUrl = buildInviteUrl(inv.getInviteCode().getCode());
-        var content = InvitationEmailTemplate.invite(workspace.getName(), inviteUrl);
-        resendEmailSender.send(inv.getSentEmail(), content.subject(), content.html());
     }
 }
