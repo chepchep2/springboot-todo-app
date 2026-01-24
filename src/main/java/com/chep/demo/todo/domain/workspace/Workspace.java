@@ -26,11 +26,6 @@ public class Workspace {
     @SequenceGenerator(name = "workspace_id_gen", sequenceName = "workspace_id_seq", allocationSize = 1)
     private Long id;
 
-    @NotNull
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "owner_user_id", nullable = false)
-    private User owner;
-
     @Size(max = 100)
     @NotNull
     @Column(name = "name", nullable = false, length = 100)
@@ -59,35 +54,23 @@ public class Workspace {
 
     protected Workspace() {}
 
-    private Workspace(User owner, String name, String description, boolean personal) {
-        if (owner == null) {
-            throw new IllegalArgumentException("owner must not be null");
-        }
-
+    private Workspace(String name, String description, boolean personal) {
         if (name == null) {
             throw new IllegalArgumentException("name must not be null");
         }
 
-        this.owner = owner;
         this.name = name;
         this.description = description;
         this.personal = personal;
         this.createdAt = Instant.now();
         this.updatedAt = null;
 
-        members.add(WorkspaceMember.owner(this, owner));
     }
 
     public static class Builder {
-        private User owner;
         private String name;
         private String description;
         private boolean personal;
-
-        public Builder owner(User owner) {
-            this.owner = owner;
-            return this;
-        }
 
         public Builder name(String name) {
             this.name = name;
@@ -105,7 +88,7 @@ public class Workspace {
         }
 
         public Workspace build() {
-            return new Workspace(owner, name, description, personal);
+            return new Workspace(name, description, personal);
         }
     }
 
@@ -114,21 +97,28 @@ public class Workspace {
     }
 
     public static Workspace personal(User owner) {
-        return Workspace.builder()
-                .owner(owner)
+        Workspace ws = Workspace.builder()
                 .name("Personal")
                 .description("Personal Workspace")
                 .personal(true)
                 .build();
+
+        ws.addOwner(owner);
+        return ws;
     }
 
     public static Workspace of(User owner, String name, String description) {
-        return Workspace.builder()
-                .owner(owner)
+        Workspace ws = Workspace.builder()
                 .name(name)
                 .description(description)
                 .personal(false)
                 .build();
+        ws.addOwner(owner);
+        return ws;
+    }
+
+    public void addOwner(User owner) {
+        this.members.add(WorkspaceMember.owner(this, owner));
     }
 
     public void changeNameAndDescription(String name, String description) {
@@ -212,6 +202,14 @@ public class Workspace {
                 .anyMatch(member -> member.hasUser(userId) && member.isActive());
     }
 
+    public User getOwner() {
+        return members.stream()
+                .filter(WorkspaceMember::isOwner)
+                .map(WorkspaceMember::getUser)
+                .findFirst()
+                .orElseThrow(() -> new WorkspaceMemberNotFoundException("Workspace owner not found"));
+    }
+
     public boolean isPersonal() {
         return personal;
     }
@@ -245,10 +243,6 @@ public class Workspace {
 
     public Long getId() {
         return id;
-    }
-
-    public User getOwner() {
-        return owner;
     }
 
     public String getName() {
