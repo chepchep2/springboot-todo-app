@@ -12,7 +12,7 @@ import java.time.Instant;
 
 @Entity
 @Table(name = "invite_codes")
-public class InviteCode {
+public class InvitationCode {
     public static final int DEFAULT_EXPIRATION_DAYS = 7;
     public static final int MIN_EXPIRATION_DAYS = 1;
     public static final int MAX_EXPIRATION_DAYS = 30;
@@ -47,9 +47,9 @@ public class InviteCode {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
-    protected InviteCode() {}
+    protected InvitationCode() {}
 
-    private InviteCode(Workspace workspace, User createdBy, String code, Instant expiresAt, Instant createdAt) {
+    private InvitationCode(Workspace workspace, User createdBy, String code, Instant expiresAt, Instant createdAt) {
         this.workspace = requireWorkspace(workspace);
         this.createdBy = requireCreator(createdBy);
         this.code = requireCode(code);
@@ -61,17 +61,17 @@ public class InviteCode {
         }
     }
 
-    public static InviteCode create(Workspace workspace, User createdBy, int expiresInDays) {
+    // TODO: application Layer에서 now 주입하도록 변경 후 이 주석 제거
+    public static InvitationCode create(Workspace workspace, User createdBy, int expiresInDays, Instant now) {
         validateExpirationDays(expiresInDays);
 
-        Instant now = Instant.now();
         Instant expiresAt = now.plus(Duration.ofDays(expiresInDays));
 
-        return new InviteCode(workspace, createdBy, generateRandomCode(), expiresAt, now);
+        return new InvitationCode(workspace, createdBy, generateRandomCode(), expiresAt, now);
     }
 
-    public static InviteCode create(Workspace workspace, User createdBy) {
-        return create(workspace, createdBy, DEFAULT_EXPIRATION_DAYS);
+    public static InvitationCode create(Workspace workspace, User createdBy, Instant now) {
+        return create(workspace, createdBy, DEFAULT_EXPIRATION_DAYS, now);
     }
 
     public static void validateExpirationDays(int expiresInDays) {

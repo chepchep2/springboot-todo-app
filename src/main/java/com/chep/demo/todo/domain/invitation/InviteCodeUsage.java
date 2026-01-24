@@ -22,7 +22,7 @@ public class InviteCodeUsage {
     @NotNull
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "invite_code_id", nullable = false)
-    private InviteCode inviteCode;
+    private InvitationCode inviteCode;
 
     @NotNull
     @ManyToOne(fetch = FetchType.LAZY)
@@ -35,15 +35,15 @@ public class InviteCodeUsage {
 
     protected InviteCodeUsage() {}
 
-    private InviteCodeUsage(InviteCode inviteCode, WorkspaceMember workspaceMember, Instant usedAt) {
+    private InviteCodeUsage(InvitationCode inviteCode, WorkspaceMember workspaceMember, Instant usedAt) {
         this.inviteCode = requireInviteCode(inviteCode);
         this.workspaceMember = requireWorkspaceMember(workspaceMember);
         ensureSameWorkspace(this.inviteCode, this.workspaceMember);
         this.usedAt = usedAt != null ? usedAt : Instant.now();
     }
 
-    public static InviteCodeUsage record(InviteCode inviteCode, WorkspaceMember workspaceMember, Instant now) {
-        return new InviteCodeUsage(inviteCode, workspaceMember, now);
+    public static InviteCodeUsage record(InvitationCode invitationCode, WorkspaceMember workspaceMember, Instant now) {
+        return new InviteCodeUsage(invitationCode, workspaceMember, now);
     }
 
     public Long getId() {
@@ -54,7 +54,7 @@ public class InviteCodeUsage {
         return usedAt;
     }
 
-    public InviteCode getInviteCode() {
+    public InvitationCode getInviteCode() {
         return inviteCode;
     }
 
@@ -62,11 +62,11 @@ public class InviteCodeUsage {
         return workspaceMember;
     }
 
-    private static InviteCode requireInviteCode(InviteCode inviteCode) {
-        if (inviteCode == null) {
+    private static InvitationCode requireInviteCode(InvitationCode invitationCode) {
+        if (invitationCode == null) {
             throw new InvitationValidationException("inviteCode must not be null");
         }
-        return inviteCode;
+        return invitationCode;
     }
 
     private static WorkspaceMember requireWorkspaceMember(WorkspaceMember member) {
@@ -76,16 +76,16 @@ public class InviteCodeUsage {
         return member;
     }
 
-    private static void ensureSameWorkspace(InviteCode inviteCode, WorkspaceMember member) {
-        if (inviteCode.getWorkspace() == null || member.getWorkspace() == null) {
+    private static void ensureSameWorkspace(InvitationCode invitationCode, WorkspaceMember member) {
+        if (invitationCode.getWorkspace() == null || member.getWorkspace() == null) {
             throw new InvitationValidationException("Workspace relation must be initialized");
         }
 
-        Long inviteWorkspaceId = inviteCode.getWorkspace().getId();
+        Long inviteWorkspaceId = invitationCode.getWorkspace().getId();
         Long memberWorkspaceId = member.getWorkspace().getId();
 
         boolean matchesById = inviteWorkspaceId != null && memberWorkspaceId != null && Objects.equals(inviteWorkspaceId, memberWorkspaceId);
-        boolean matchesByInstance = (inviteWorkspaceId == null || memberWorkspaceId == null) && inviteCode.getWorkspace() == member.getWorkspace();
+        boolean matchesByInstance = (inviteWorkspaceId == null || memberWorkspaceId == null) && invitationCode.getWorkspace() == member.getWorkspace();
 
         if (!(matchesById || matchesByInstance)) {
             throw new InvitationValidationException("Invite code and workspace member must belong to the same workspace");
