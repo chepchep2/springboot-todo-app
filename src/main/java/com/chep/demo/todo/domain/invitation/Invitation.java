@@ -57,7 +57,7 @@ public class Invitation {
 
     private Invitation(
             User createdBy,
-            InvitationCode inviteCode,
+            InvitationCode invitationCode,
             String sentEmail,
             Status status,
             Instant createdAt,
@@ -66,7 +66,7 @@ public class Invitation {
             Instant expiredAt
     ) {
         this.createdBy = requireCreator(createdBy);
-        this.invitationCode = requireInviteCode(invitationCode);
+        this.invitationCode = requireInvitationCode(invitationCode);
         this.sentEmail = normalizeEmail(sentEmail);
         this.status = status;
         this.createdAt = createdAt;
@@ -76,7 +76,7 @@ public class Invitation {
     }
 
     public static Invitation create(User createdByUser, InvitationCode invitationCode, String sentEmail, Instant now) {
-        InvitationCode code = requireInviteCode(invitationCode);
+        InvitationCode code = requireInvitationCode(invitationCode);
         code.ensureNotExpired(now);
 
         return new Invitation(createdByUser, code, sentEmail, Status.PENDING, now, null, null, null);
@@ -136,14 +136,14 @@ public class Invitation {
     public Workspace getWorkspace() { return invitationCode.getWorkspace(); }
     public String getSentEmail() { return sentEmail; }
     public Status getStatus() { return status; }
-    public InvitationCode getInviteCode() { return invitationCode; }
+    public InvitationCode getInvitationCode() { return invitationCode; }
     public Instant getSentAt() { return sentAt; }
     public Instant getAcceptedAt() { return acceptedAt; }
     public Instant getExpiredAt() { return expiredAt; }
 
-    private static InvitationCode requireInviteCode(InvitationCode invitationCode) {
+    private static InvitationCode requireInvitationCode(InvitationCode invitationCode) {
         if (invitationCode == null) {
-            throw new InvitationValidationException("inviteCode must not be null");
+            throw new InvitationValidationException("invitationCode must not be null");
         }
         return invitationCode;
     }

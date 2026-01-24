@@ -13,7 +13,7 @@ import java.util.Objects;
         uniqueConstraints = {
                 @UniqueConstraint(name = "uq_invite_code_usage_member", columnNames = "workspace_member_id")
         })
-public class InviteCodeUsage {
+public class InvitationCodeUsage {
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "invite_code_usage_id_gen")
     @SequenceGenerator(name = "invite_code_usage_id_gen", sequenceName = "invite_code_usage_id_seq", allocationSize = 1)
@@ -22,7 +22,7 @@ public class InviteCodeUsage {
     @NotNull
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "invite_code_id", nullable = false)
-    private InvitationCode inviteCode;
+    private InvitationCode invitationCode;
 
     @NotNull
     @ManyToOne(fetch = FetchType.LAZY)
@@ -33,17 +33,17 @@ public class InviteCodeUsage {
     @Column(name = "used_at", nullable = false)
     private Instant usedAt;
 
-    protected InviteCodeUsage() {}
+    protected InvitationCodeUsage() {}
 
-    private InviteCodeUsage(InvitationCode inviteCode, WorkspaceMember workspaceMember, Instant usedAt) {
-        this.inviteCode = requireInviteCode(inviteCode);
+    private InvitationCodeUsage(InvitationCode invitationCode, WorkspaceMember workspaceMember, Instant usedAt) {
+        this.invitationCode = requireInvitationCode(invitationCode);
         this.workspaceMember = requireWorkspaceMember(workspaceMember);
-        ensureSameWorkspace(this.inviteCode, this.workspaceMember);
+        ensureSameWorkspace(this.invitationCode, this.workspaceMember);
         this.usedAt = usedAt != null ? usedAt : Instant.now();
     }
 
-    public static InviteCodeUsage record(InvitationCode invitationCode, WorkspaceMember workspaceMember, Instant now) {
-        return new InviteCodeUsage(invitationCode, workspaceMember, now);
+    public static InvitationCodeUsage record(InvitationCode invitationCode, WorkspaceMember workspaceMember, Instant now) {
+        return new InvitationCodeUsage(invitationCode, workspaceMember, now);
     }
 
     public Long getId() {
@@ -54,17 +54,17 @@ public class InviteCodeUsage {
         return usedAt;
     }
 
-    public InvitationCode getInviteCode() {
-        return inviteCode;
+    public InvitationCode getInvitationCode() {
+        return invitationCode;
     }
 
     public WorkspaceMember getWorkspaceMember() {
         return workspaceMember;
     }
 
-    private static InvitationCode requireInviteCode(InvitationCode invitationCode) {
+    private static InvitationCode requireInvitationCode(InvitationCode invitationCode) {
         if (invitationCode == null) {
-            throw new InvitationValidationException("inviteCode must not be null");
+            throw new InvitationValidationException("invitationCode must not be null");
         }
         return invitationCode;
     }
@@ -88,7 +88,7 @@ public class InviteCodeUsage {
         boolean matchesByInstance = (inviteWorkspaceId == null || memberWorkspaceId == null) && invitationCode.getWorkspace() == member.getWorkspace();
 
         if (!(matchesById || matchesByInstance)) {
-            throw new InvitationValidationException("Invite code and workspace member must belong to the same workspace");
+            throw new InvitationValidationException("Invitation code and workspace member must belong to the same workspace");
         }
     }
 }

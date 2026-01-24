@@ -2,7 +2,7 @@ package com.chep.demo.todo.domain.invitation;
 import com.chep.demo.todo.domain.user.User;
 import com.chep.demo.todo.domain.workspace.Workspace;
 import com.chep.demo.todo.exception.invitation.InvitationValidationException;
-import com.chep.demo.todo.exception.invitation.InviteCodeExpiredException;
+import com.chep.demo.todo.exception.invitation.InvitationCodeExpiredException;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 
@@ -89,7 +89,7 @@ public class InvitationCode {
 
     public void ensureNotExpired(Instant now) {
         if (isExpired(now)) {
-            throw new InviteCodeExpiredException("Invite code has expired");
+            throw new InvitationCodeExpiredException("Invitation code has expired");
         }
     }
 
@@ -129,14 +129,14 @@ public class InvitationCode {
 
     private static String requireCode(String code) {
         if (code == null || code.isBlank()) {
-            throw new InvitationValidationException("invite code must not be blank");
+            throw new InvitationValidationException("invitation code must not be blank");
         }
         if (code.length() != CODE_LENGTH) {
-            throw new InvitationValidationException("invite code must be exactly " + CODE_LENGTH + " characters");
+            throw new InvitationValidationException("invitation code must be exactly " + CODE_LENGTH + " characters");
         }
         for (char ch : code.toCharArray()) {
             if (!Character.isLetterOrDigit(ch)) {
-                throw new InvitationValidationException("invite code must be alphanumeric");
+                throw new InvitationValidationException("invitation code must be alphanumeric");
             }
         }
         return code;
