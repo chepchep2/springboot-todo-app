@@ -2,8 +2,7 @@ package com.chep.demo.todo.controller.invitation;
 
 import com.chep.demo.todo.dto.invitation.CreateInvitationRequest;
 import com.chep.demo.todo.dto.invitation.InvitationAcceptResult;
-import com.chep.demo.todo.dto.invitation.InviteCreateResult;
-import com.chep.demo.todo.dto.invitation.InviteResendResult;
+import com.chep.demo.todo.dto.invitation.InvitationResult;
 import com.chep.demo.todo.dto.invitation.ResendInvitationRequest;
 import com.chep.demo.todo.service.invitation.InvitationService;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -25,7 +24,7 @@ public class InvitationController {
     }
 
     @PostMapping
-    public InviteCreateResult create(
+    public InvitationResult create(
             @PathVariable Long workspaceId,
             @RequestBody CreateInvitationRequest request
             ) {
@@ -39,7 +38,7 @@ public class InvitationController {
     }
 
     @PostMapping("/resend")
-    public InviteResendResult resend(
+    public InvitationResult resend(
             @PathVariable Long workspaceId,
             @RequestBody ResendInvitationRequest request
     ) {
@@ -57,6 +56,6 @@ public class InvitationController {
             @PathVariable String inviteCode
     ) {
         Long userId = currentUserId();
-        return invitationService.acceptInvitation(inviteCode, userId);
+        return invitationService.acceptInvitation(workspaceId, inviteCode, userId);
     }
 }

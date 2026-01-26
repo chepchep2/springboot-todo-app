@@ -1,9 +1,11 @@
 package com.chep.demo.todo.domain.invitation;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -18,4 +20,24 @@ public interface InvitationRepository extends JpaRepository<Invitation, Long> {
             WHERE i.id = :invitationId
             """)
     Optional<Invitation> findForEmailSend(@Param("invitationId") Long invitationId);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            UPDATE Invitation i
+            SET
+                i.status = com.chep.demo.todo.domain.invitation.Invitation.Status.CANCELLED,
+                i.expiredAt = :now
+            WHERE
+                i.inviteCode.workspace.id = :workspaceId
+            AND
+                i.sentEmail = :email
+            AND
+                i.status IN (
+                    com.chep.demo.todo.domain.invitation.Invitation.Status.PENDING
+                    i.status = com.chep.demo.todo.domain.invitation.Invitation.Status.SENT
+                )                         
+            """)
+    int bulkCancelPendingOrSent(@Param("workspaceId") Long workspaceId,
+                                      @Param("email") String email,
+                                      @Param("now")Instant now);
 }
