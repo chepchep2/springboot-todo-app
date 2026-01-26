@@ -21,8 +21,9 @@ public class InvitationEmailTxService {
 
     @Transactional(readOnly = true)
     public Optional<Invitation> getPendingInvitation(Long invitationId) {
+        Instant now = Instant.now();
         return invitationRepository.findForEmailSend(invitationId)
-                .filter(inv -> inv.getStatus() == Invitation.Status.PENDING);
+                .filter(inv -> inv.getStatus() == Invitation.Status.PENDING && !inv.isExpired(now));
     }
 
     public void markSent(Long invitationId, Instant sentAt) {

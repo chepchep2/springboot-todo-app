@@ -83,7 +83,7 @@ public class Invitation {
     }
 
     public boolean isExpired(Instant now) {
-        return status == Status.CANCELLED || inviteCode.isExpired(now);
+        return inviteCode.isExpired(now);
     }
 
     public void markSent(Instant now) {
