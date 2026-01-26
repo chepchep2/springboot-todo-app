@@ -81,9 +81,7 @@ public class InvitationService {
             throw new InvitationValidationException("max 20 emails");
         }
 
-        Set<String> activeEmails = workspace.getActiveMembers().stream()
-                .map(m -> Invitation.normalizeEmail(m.getUser().getEmail()))
-                .collect(Collectors.toSet());
+        Set<String> activeEmails = new HashSet<>(workspaceMemberRepository.findActiveMemberEmails(workspaceId));
 
         List<String> targetEmails = normalized.stream()
                 .filter(e -> !activeEmails.contains(e))
