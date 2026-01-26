@@ -11,6 +11,7 @@ import com.chep.demo.todo.dto.invitation.InvitationAcceptResult;
 import com.chep.demo.todo.dto.invitation.InvitationItem;
 import com.chep.demo.todo.dto.invitation.InvitationResult;
 import com.chep.demo.todo.exception.auth.UserNotFoundException;
+import com.chep.demo.todo.exception.invitation.AlreadyWorkspaceMemberException;
 import com.chep.demo.todo.exception.invitation.InvitationValidationException;
 import com.chep.demo.todo.exception.invitation.InviteCodeNotFoundException;
 import com.chep.demo.todo.exception.workspace.WorkspaceNotFoundException;
@@ -18,6 +19,9 @@ import com.chep.demo.todo.exception.workspace.WorkspacePolicyViolationException;
 import com.chep.demo.todo.service.invitation.event.InvitationsCreatedEvent;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -184,8 +188,7 @@ public class InvitationService {
             WorkspaceMember active = workspace.requireActiveMember(user.getId());
             return toResult(InvitationAcceptResult.Result.ALREADY_MEMBER, workspace, active);
         }
-        WorkspaceMember member = workspace.addMember(user);
-        workspaceMemberRepository.saveAndFlush(member);
+        WorkspaceMember member = saveMember(workspace, user);
 
         invitation.accept(email, now);
 
@@ -204,5 +207,14 @@ public class InvitationService {
         var w = new InvitationAcceptResult.WorkspaceSummary(ws.getId(), ws.getName());
         var m = new InvitationAcceptResult.MemberSummary(member.getId(), member.getRole().name(), member.getJoinedAt());
         return new InvitationAcceptResult(result, w, m);
+    }
+
+    private WorkspaceMember saveMember(Workspace workspace, User user) {
+        try {
+            WorkspaceMember member = workspace.addMember(user);
+            return workspaceMemberRepository.saveAndFlush(member);
+        } catch (DataIntegrityViolationException e) {
+            throw new AlreadyWorkspaceMemberException("이미 멤버입니다.");
+        }
     }
 }
