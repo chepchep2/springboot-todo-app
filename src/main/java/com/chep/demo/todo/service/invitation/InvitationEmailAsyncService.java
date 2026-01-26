@@ -27,7 +27,7 @@ public class InvitationEmailAsyncService {
     }
 
     @Transactional
-    @Async
+    @Async("mailExecutor")
     public void sendInvitationEmail(Long invitationId) {
         // 1. invitationId로 Invitation 조회
         Optional<Invitation> invitation = invitationRepository.findForEmailSend(invitationId);
