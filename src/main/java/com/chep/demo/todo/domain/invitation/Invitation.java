@@ -83,7 +83,7 @@ public class Invitation {
     }
 
     public boolean isExpired(Instant now) {
-        return status == Status.EXPIRED || inviteCode.isExpired(now);
+        return status == Status.CANCELLED || inviteCode.isExpired(now);
     }
 
     public void markSent(Instant now) {
@@ -111,10 +111,10 @@ public class Invitation {
         if (this.status == Status.ACCEPTED) {
             throw new InvitationStateException("Accepted invitations cannot expire");
         }
-        if (this.status == Status.EXPIRED) {
+        if (this.status == Status.CANCELLED) {
             return;
         }
-        this.status = Status.EXPIRED;
+        this.status = Status.CANCELLED;
         this.expiredAt = now;
     }
 
@@ -122,8 +122,7 @@ public class Invitation {
         PENDING,
         SENT,
         ACCEPTED,
-        // 여기서 EXPIRED는 기간이 만료되서 EXPIRED가 아니라 재발송을 하면 기존 Invitation가 만료되서 EXPIRED. 나중에 용어 변경 예정
-        EXPIRED,
+        CANCELLED,
         FAILED
     }
 
