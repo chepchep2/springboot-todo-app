@@ -9,20 +9,17 @@ import com.chep.demo.todo.domain.workspace.WorkspaceMemberRepository;
 import com.chep.demo.todo.domain.workspace.WorkspaceRepository;
 import com.chep.demo.todo.dto.invitation.InvitationAcceptResult;
 import com.chep.demo.todo.dto.invitation.InvitationItem;
-import com.chep.demo.todo.dto.invitation.InviteCreateResult;
-import com.chep.demo.todo.dto.invitation.InviteResendResult;
+import com.chep.demo.todo.dto.invitation.InvitationResult;
 import com.chep.demo.todo.exception.auth.UserNotFoundException;
 import com.chep.demo.todo.exception.invitation.InvitationValidationException;
 import com.chep.demo.todo.exception.invitation.InviteCodeNotFoundException;
 import com.chep.demo.todo.exception.workspace.WorkspaceNotFoundException;
 import com.chep.demo.todo.exception.workspace.WorkspacePolicyViolationException;
-import com.chep.demo.todo.service.email.ResendEmailSender;
 import com.chep.demo.todo.service.invitation.event.InvitationsCreatedEvent;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.beans.factory.annotation.Value;
 
 import java.time.Instant;
 import java.util.*;
@@ -36,9 +33,9 @@ public class InvitationService {
     private final WorkspaceRepository workspaceRepository;
     private final UserRepository userRepository;
     private final InviteCodeUsageRepository inviteCodeUsageRepository;
-    private final ResendEmailSender resendEmailSender;
     private final WorkspaceMemberRepository workspaceMemberRepository;
     private final ApplicationEventPublisher applicationEventPublisher;
+    private final InvitationLinkBuilder invitationLinkBuilder;
 
     public InvitationService(
             InviteCodeRepository inviteCodeRepository,
@@ -46,21 +43,21 @@ public class InvitationService {
             WorkspaceRepository workspaceRepository,
             UserRepository userRepository,
             InviteCodeUsageRepository inviteCodeUsageRepository,
-            ResendEmailSender resendEmailSender,
             WorkspaceMemberRepository workspaceMemberRepository,
-            ApplicationEventPublisher applicationEventPublisher
+            ApplicationEventPublisher applicationEventPublisher,
+            InvitationLinkBuilder invitationLinkBuilder
     ) {
         this.inviteCodeRepository = inviteCodeRepository;
         this.invitationRepository = invitationRepository;
         this.workspaceRepository = workspaceRepository;
         this.userRepository = userRepository;
         this.inviteCodeUsageRepository = inviteCodeUsageRepository;
-        this.resendEmailSender = resendEmailSender;
         this.workspaceMemberRepository = workspaceMemberRepository;
         this.applicationEventPublisher = applicationEventPublisher;
+        this.invitationLinkBuilder = invitationLinkBuilder;
     }
 
-    public InviteCreateResult createInvitations(Long workspaceId, Long requesterUserId, List<String> emails, Integer expiresInDays) {
+    public InvitationResult createInvitations(Long workspaceId, Long requesterUserId, List<String> emails, Integer expiresInDays) {
         // 1. workspace 조회 + owner 체크
         Workspace workspace = workspaceRepository.findByIdWithMembers(workspaceId)
                 .orElseThrow(() -> new WorkspaceNotFoundException("Workspace not found"));
@@ -92,7 +89,7 @@ public class InvitationService {
                 .filter(e -> !activeEmails.contains(e))
                 .toList();
         if (targetEmails.isEmpty()) {
-            return new InviteCreateResult(List.of());
+            return new InvitationResult(List.of());
         }
         // 3. InviteCode 생성
         Instant now = Instant.now();
@@ -114,14 +111,14 @@ public class InvitationService {
                         inv.getInviteCode().getCode(),
                         inv.getStatus().name(),
                         inv.getInviteCode().getExpiresAt(),
-                        buildInviteUrl(inv.getInviteCode().getCode()),
+                        invitationLinkBuilder.buildInviteUrl(inv.getInviteCode().getCode()),
                         inv.getSentAt()
                 )).toList();
 
-        return new InviteCreateResult(items);
+        return new InvitationResult(items);
     }
 
-    public InviteResendResult resendInvitation(Long workspaceId, Long requesterUserId, String email) {
+    public InvitationResult resendInvitation(Long workspaceId, Long requesterUserId, String email) {
         Instant now = Instant.now();
         String normalizedEmail = Invitation.normalizeEmail(email);
         // 1. owner 체크
@@ -159,13 +156,13 @@ public class InvitationService {
                 newCode.getCode(),
                 newInvitation.getStatus().name(),
                 newCode.getExpiresAt(),
-                buildInviteUrl(newCode.getCode()),
+                invitationLinkBuilder.buildInviteUrl(newCode.getCode()),
                 newInvitation.getSentAt()
         );
-        return new InviteResendResult(List.of(item));
+        return new InvitationResult(List.of(item));
     }
 
-    public InvitationAcceptResult acceptInvitation(String inviteCode, Long userId) {
+    public InvitationAcceptResult acceptInvitation(Long workspaceId, String inviteCode, Long userId) {
         // 0. 입력 검증
         String code = inviteCode == null ? "" : inviteCode.trim();
         if (code.isEmpty()) {
@@ -180,11 +177,13 @@ public class InvitationService {
         InviteCode inviteCodeEntity = inviteCodeRepository.findByCode(code)
                 .orElseThrow(() -> new InviteCodeNotFoundException("Invite code not found"));
         inviteCodeEntity.ensureNotExpired(now);
+        if (!inviteCodeEntity.getWorkspace().getId().equals(workspaceId)) {
+            throw new InviteCodeNotFoundException("Invite code not found in this workspace");
+        }
         // 3. Invitation 조회
         Invitation invitation = invitationRepository.findByInviteCodeCodeAndSentEmail(code, email)
                 .orElseThrow(() -> new InvitationValidationException("Invitation does not exist for this email"));
         // 4. workspace 조회
-        Long workspaceId = inviteCodeEntity.getWorkspace().getId();
         Workspace workspace = workspaceRepository.findByIdWithMembers(workspaceId)
                 .orElseThrow(() -> new WorkspaceNotFoundException(""));
         // 5. WorkspaceMember 처리(ACTIVE/LEFT/KICKED)
@@ -212,11 +211,5 @@ public class InvitationService {
         var w = new InvitationAcceptResult.WorkspaceSummary(ws.getId(), ws.getName());
         var m = new InvitationAcceptResult.MemberSummary(member.getId(), member.getRole().name(), member.getJoinedAt());
         return new InvitationAcceptResult(result, w, m);
-    }
-
-    @Value("${app.base-url}")
-    private String baseUrl;
-    private String buildInviteUrl(String code) {
-        return baseUrl + "/invitations/" + code + "/accept";
     }
 }

@@ -5,7 +5,6 @@ import com.chep.demo.todo.domain.invitation.InvitationRepository;
 import com.chep.demo.todo.domain.workspace.Workspace;
 import com.chep.demo.todo.service.email.InvitationEmailTemplate;
 import com.chep.demo.todo.service.email.ResendEmailSender;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,13 +16,16 @@ import java.util.Optional;
 public class InvitationEmailAsyncService {
     private final ResendEmailSender resendEmailSender;
     private final InvitationRepository invitationRepository;
+    private final InvitationLinkBuilder invitationLinkBuilder;
 
     public InvitationEmailAsyncService(
             ResendEmailSender resendEmailSender,
-            InvitationRepository invitationRepository
+            InvitationRepository invitationRepository,
+            InvitationLinkBuilder invitationLinkBuilder
     ) {
         this.resendEmailSender = resendEmailSender;
         this.invitationRepository = invitationRepository;
+        this.invitationLinkBuilder = invitationLinkBuilder;
     }
 
     @Transactional
@@ -42,7 +44,7 @@ public class InvitationEmailAsyncService {
             return;
         }
         // 3. inviteUrl 만들기
-        String inviteUrl = buildInviteUrl(inv.getInviteCode().getCode());
+        String inviteUrl = invitationLinkBuilder.buildInviteUrl(inv.getInviteCode().getCode());
         // 4. template 만들기
         Workspace workspace = inv.getWorkspace();
         var content = InvitationEmailTemplate.invite(workspace.getName(), inviteUrl);
@@ -55,11 +57,5 @@ public class InvitationEmailAsyncService {
             inv.markFailed();
         }
         invitationRepository.save(inv);
-    }
-
-    @Value("${app.base-url}")
-    private String baseUrl;
-    private String buildInviteUrl(String code) {
-        return baseUrl + "/invitations/" + code + "/accept";
     }
 }
