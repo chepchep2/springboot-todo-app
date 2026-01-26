@@ -1,12 +1,14 @@
 package com.chep.demo.todo.service.invitation;
 
 import com.chep.demo.todo.domain.invitation.Invitation;
-import com.chep.demo.todo.domain.invitation.InvitationRepository;
 import com.chep.demo.todo.domain.workspace.Workspace;
 import com.chep.demo.todo.service.email.InvitationEmailTemplate;
 import com.chep.demo.todo.service.email.ResendEmailSender;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 import java.time.Instant;
 import java.util.Optional;
@@ -26,6 +28,7 @@ public class InvitationEmailAsyncService {
         this.invitationLinkBuilder = invitationLinkBuilder;
         this.invitationEmailTxService = invitationEmailTxService;
     }
+    private static final Logger log = LoggerFactory.getLogger(InvitationEmailAsyncService.class);
 
     @Async("mailExecutor")
     public void sendInvitationEmail(Long invitationId) {
@@ -44,7 +47,13 @@ public class InvitationEmailAsyncService {
         try {
             resendEmailSender.send(inv.getSentEmail(), content.subject(), content.html());
             invitationEmailTxService.markSent(invitationId, now);
+        } catch (WebClientResponseException e) {
+            log.error("Resend API error. invitationId={}, status={}, body={}",
+                    invitationId, e.getStackTrace(), e.getResponseBodyAsString(), e);
+            invitationEmailTxService.markFailed(invitationId);
         } catch(Exception e) {
+            log.error("Failed to send invitation email. invitationId={}, email={}",
+                    invitationId, inv.getSentEmail(), e);
             invitationEmailTxService.markFailed(invitationId);
         }
     }
