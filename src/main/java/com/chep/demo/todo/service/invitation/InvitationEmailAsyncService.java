@@ -7,7 +7,6 @@ import com.chep.demo.todo.service.email.InvitationEmailTemplate;
 import com.chep.demo.todo.service.email.ResendEmailSender;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.Optional;
@@ -15,47 +14,38 @@ import java.util.Optional;
 @Service
 public class InvitationEmailAsyncService {
     private final ResendEmailSender resendEmailSender;
-    private final InvitationRepository invitationRepository;
     private final InvitationLinkBuilder invitationLinkBuilder;
+    private final InvitationEmailTxService invitationEmailTxService;
 
     public InvitationEmailAsyncService(
             ResendEmailSender resendEmailSender,
-            InvitationRepository invitationRepository,
-            InvitationLinkBuilder invitationLinkBuilder
+            InvitationLinkBuilder invitationLinkBuilder,
+            InvitationEmailTxService invitationEmailTxService
     ) {
         this.resendEmailSender = resendEmailSender;
-        this.invitationRepository = invitationRepository;
         this.invitationLinkBuilder = invitationLinkBuilder;
+        this.invitationEmailTxService = invitationEmailTxService;
     }
 
-    @Transactional
     @Async("mailExecutor")
     public void sendInvitationEmail(Long invitationId) {
-        // 1. invitationId로 Invitation 조회
-        Optional<Invitation> invitation = invitationRepository.findForEmailSend(invitationId);
+        Instant now = Instant.now();
+        Optional<Invitation> optionalInvitation = invitationEmailTxService.getPendingInvitation(invitationId);
+        if (optionalInvitation.isEmpty()) {
+            return;
+        }
+        Invitation inv = optionalInvitation.get();
 
-        if (invitation.isEmpty()) {
-            return;
-        }
-        // 1-1. Optional<Invitation> invitation을 꺼낸다.
-        Invitation inv = invitation.get();
-        // 2. 상태가 PENDING이 아니면 return
-        if (inv.getStatus() != Invitation.Status.PENDING) {
-            return;
-        }
-        // 3. inviteUrl 만들기
         String inviteUrl = invitationLinkBuilder.buildInviteUrl(inv.getInviteCode().getCode());
-        // 4. template 만들기
+
         Workspace workspace = inv.getWorkspace();
         var content = InvitationEmailTemplate.invite(workspace.getName(), inviteUrl);
-        // 5. resend 호출, 성공이면 SENT, 실패면 FAILED
+
         try {
             resendEmailSender.send(inv.getSentEmail(), content.subject(), content.html());
-
-            inv.markSent(Instant.now());
+            invitationEmailTxService.markSent(invitationId, now);
         } catch(Exception e) {
-            inv.markFailed();
+            invitationEmailTxService.markFailed(invitationId);
         }
-        invitationRepository.save(inv);
     }
 }
