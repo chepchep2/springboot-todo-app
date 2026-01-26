@@ -214,7 +214,7 @@ public class InvitationService {
             WorkspaceMember member = workspace.addMember(user);
             return workspaceMemberRepository.saveAndFlush(member);
         } catch (DataIntegrityViolationException e) {
-            throw new AlreadyWorkspaceMemberException("이미 멤버입니다.");
+            throw new AlreadyWorkspaceMemberException("ALREADY MEMBER");
         }
     }
 }
