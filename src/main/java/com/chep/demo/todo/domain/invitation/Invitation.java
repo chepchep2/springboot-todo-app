@@ -92,6 +92,10 @@ public class Invitation {
         this.sentAt = now;
     }
 
+    public void markFailed() {
+        this.status = Status.FAILED;
+    }
+
     public void accept(String acceptingEmail, Instant now) {
         requireStatus(Status.PENDING, Status.SENT);
         invitationCode.ensureNotExpired(now);
@@ -118,7 +122,9 @@ public class Invitation {
         PENDING,
         SENT,
         ACCEPTED,
-        EXPIRED
+        // 여기서 EXPIRED는 기간이 만료되서 EXPIRED가 아니라 재발송을 하면 기존 Invitation가 만료되서 EXPIRED. 나중에 용어 변경 예정
+        EXPIRED,
+        FAILED
     }
 
     public Long getId() {
