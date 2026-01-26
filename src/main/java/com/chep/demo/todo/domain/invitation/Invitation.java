@@ -107,7 +107,7 @@ public class Invitation {
         this.acceptedAt = now;
     }
 
-    public void expire(Instant now) {
+    public void cancel(Instant now) {
         if (this.status == Status.ACCEPTED) {
             throw new InvitationStateException("Accepted invitations cannot expire");
         }

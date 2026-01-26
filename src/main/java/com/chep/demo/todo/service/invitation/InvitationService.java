@@ -23,7 +23,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -135,12 +134,8 @@ public class InvitationService {
             throw new InvitationValidationException("Email already belongs to an active member");
         }
         // 3. 기존 invitation(PENDING/SENT) expire
-        List<Invitation> existing = invitationRepository.findByInviteCodeWorkspaceIdAndSentEmailAndStatusIn(workspaceId, normalizedEmail, List.of(Invitation.Status.PENDING, Invitation.Status.SENT));
+        invitationRepository.bulkCancelPendingOrSent(workspaceId, normalizedEmail, now);
 
-        for (Invitation inv : existing) {
-            inv.expire(now);
-        }
-        invitationRepository.saveAll(existing);
         // 4. 새 InviteCode + Invitation 생성
         User owner = workspace.getOwner();
         InviteCode newCode = inviteCodeRepository.save(InviteCode.create(workspace, owner, InviteCode.DEFAULT_EXPIRATION_DAYS));
