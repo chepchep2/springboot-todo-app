@@ -2,11 +2,7 @@ package com.chep.demo.todo.controller.workspace;
 
 import com.chep.demo.todo.domain.workspace.Workspace;
 import com.chep.demo.todo.domain.workspace.WorkspaceMember;
-import com.chep.demo.todo.dto.workspace.CreateWorkspaceRequest;
-import com.chep.demo.todo.dto.workspace.AddWorkspaceMemberRequest;
-import com.chep.demo.todo.dto.workspace.UpdateWorkspaceRequest;
-import com.chep.demo.todo.dto.workspace.WorkspaceResponse;
-import com.chep.demo.todo.dto.workspace.WorkspaceMemberResponse;
+import com.chep.demo.todo.dto.workspace.*;
 import com.chep.demo.todo.service.workspace.WorkspaceService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -17,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
+import java.time.Instant;
 import java.util.List;
 
 @Tag(name = "Workspace", description = "Workspace 관리 API")
@@ -100,12 +97,18 @@ public class WorkspaceController {
 
     @Operation(summary = "워크스페이스 멤버 목록", description = "해당 워크스페이스의 활성 멤버 목록을 반환합니다.")
     @GetMapping("/{workspaceId}/members")
-    ResponseEntity<List<WorkspaceMemberResponse>> getMembers(@PathVariable Long workspaceId) {
+    ResponseEntity<WorkspaceMemberCursorResponse> getMembers(@PathVariable Long workspaceId,
+                                                             @RequestParam(required = false) WorkspaceMember.Status status,
+                                                             @RequestParam(required = false) String cursorJoinedAt,
+                                                             @RequestParam(required = false) Long cursorMemberId,
+                                                             @RequestParam(required = false) String keyword,
+                                                             @RequestParam(defaultValue = "20") int limit) {
         Long userId = currentUserId();
-        List<WorkspaceMemberResponse> responses = workspaceService.getMembers(workspaceId, userId)
-                .stream()
-                .map(this::toMemberResponse)
-                .toList();
+        Instant cursorInstant = null;
+        if (cursorJoinedAt != null) {
+            cursorInstant = Instant.parse(cursorJoinedAt);
+        }
+        WorkspaceMemberCursorResponse responses = workspaceService.getMembers(workspaceId, userId, status, cursorInstant, cursorMemberId, keyword, limit);
         return ResponseEntity.ok(responses);
     }
 
