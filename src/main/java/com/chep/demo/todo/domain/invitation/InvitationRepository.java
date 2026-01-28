@@ -33,8 +33,8 @@ public interface InvitationRepository extends JpaRepository<Invitation, Long> {
                 i.sentEmail = :email
             AND
                 i.status IN (
-                    com.chep.demo.todo.domain.invitation.Invitation.Status.PENDING
-                    i.status = com.chep.demo.todo.domain.invitation.Invitation.Status.SENT
+                    com.chep.demo.todo.domain.invitation.Invitation.Status.PENDING,
+                    com.chep.demo.todo.domain.invitation.Invitation.Status.SENT
                 )                         
             """)
     int bulkCancelPendingOrSent(@Param("workspaceId") Long workspaceId,
