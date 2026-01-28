@@ -113,6 +113,7 @@ public class Workspace {
                 .description(description)
                 .personal(false)
                 .build();
+
         ws.addOwner(owner);
         return ws;
     }
