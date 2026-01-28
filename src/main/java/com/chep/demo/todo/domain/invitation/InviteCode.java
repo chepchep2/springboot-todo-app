@@ -11,7 +11,7 @@ import java.time.Duration;
 import java.time.Instant;
 
 @Entity
-@Table(name = "invite_codes")
+@Table(name = "invitation_codes")
 public class InviteCode {
     public static final int DEFAULT_EXPIRATION_DAYS = 7;
     public static final int MIN_EXPIRATION_DAYS = 1;
