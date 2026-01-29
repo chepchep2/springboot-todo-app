@@ -14,6 +14,8 @@ import java.util.concurrent.TimeUnit;
 @Service
 public class InvitationQueueConsumer {
     private static final Logger log = LoggerFactory.getLogger(InvitationQueueConsumer.class);
+    private static final int BLOCKING_TIMEOUT_SECONDS = 5;
+    private static final int SEND_INTERVAL_MS = 1000;
     private final RedisTemplate<String, String> redisTemplate;
     private final InvitationProcessor invitationProcessor;
 
@@ -26,12 +28,12 @@ public class InvitationQueueConsumer {
         while (true) {
             try {
                 String invitationId = redisTemplate.opsForList()
-                        .leftPop(RedisKeys.INVITATION_QUEUE, 5, TimeUnit.SECONDS);
+                        .leftPop(RedisKeys.INVITATION_QUEUE, BLOCKING_TIMEOUT_SECONDS, TimeUnit.SECONDS);
 
                 if (invitationId != null) {
                     Long id = Long.parseLong(invitationId);
                     invitationProcessor.process(id);
-                    Thread.sleep(1000);
+                    Thread.sleep(SEND_INTERVAL_MS);
                 }
             } catch (Exception e) {
                 log.error("Error consuming from queue", e);
