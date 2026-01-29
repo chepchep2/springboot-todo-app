@@ -1,9 +1,9 @@
 package com.chep.demo.todo.service.invitation;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 
-@Component
+@Service
 class InvitationLinkBuilder {
     @Value("${app.base-url}")
     private String baseUrl;
