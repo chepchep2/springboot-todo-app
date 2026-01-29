@@ -70,7 +70,8 @@ public class InvitationService {
         Set<String> activeEmails = new HashSet<>(
                 workspaceMemberRepository.findActiveMemberEmails(workspaceId)
         );
-        List<String> targetEmails = filterTargetEmails(emails, activeEmails);
+        Set<String> pendingEmails = invitationRepository.findPendingOrSentEmails(workspaceId);
+        List<String> targetEmails = filterTargetEmails(emails, activeEmails, pendingEmails);
         if (targetEmails.isEmpty()) {
             return new InvitationResult(List.of());
         }
@@ -153,7 +154,7 @@ public class InvitationService {
         return workspace;
     }
 
-    private List<String> filterTargetEmails(List<String> emails, Set<String> activeEmails) {
+    private List<String> filterTargetEmails(List<String> emails, Set<String> activeEmails, Set<String> pendingEmails) {
         if (emails == null || emails.isEmpty()) {
             throw new InvitationValidationException("emails must not be empty");
         }
@@ -170,6 +171,7 @@ public class InvitationService {
 
         return normalized.stream()
                 .filter(e -> !activeEmails.contains(e))
+                .filter(e -> !pendingEmails.contains(e))
                 .toList();
     }
 
