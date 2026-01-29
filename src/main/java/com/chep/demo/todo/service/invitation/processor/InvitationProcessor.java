@@ -22,8 +22,6 @@ public class InvitationProcessor {
     }
 
     public void process(Long invitationId) {
-        Instant now = Instant.now();
-        
         boolean locked = invitationEmailTxService.tryMarkSending(invitationId);
 
         if (!locked) {
@@ -33,11 +31,6 @@ public class InvitationProcessor {
 
         log.info("Marked as SENDING: invitation={}", invitationId);
 
-        try {
-            invitationEmailService.sendInvitationEmail(invitationId);
-        } catch (Exception e) {
-            log.error("Failed to send email: invitaitonId={}", invitationId, e);
-            invitationEmailTxService.markFailed(invitationId);
-        }
+        invitationEmailService.sendInvitationEmail(invitationId);
     }
 }

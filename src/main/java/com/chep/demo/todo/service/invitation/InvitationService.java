@@ -85,7 +85,6 @@ public class InvitationService {
     }
 
     public InvitationResult resendInvitation(Long workspaceId, Long requesterUserId, String email) {
-        Instant now = Instant.now();
         String normalizedEmail = Invitation.normalizeEmail(email);
         // 1. owner 체크
         Workspace workspace = loadWorkspaceForOwner(workspaceId, requesterUserId);
