@@ -9,7 +9,7 @@ import java.time.Instant;
 import java.util.Objects;
 
 @Entity
-@Table(name = "invite_code_usages",
+@Table(name = "invitation_code_usages",
         uniqueConstraints = {
                 @UniqueConstraint(name = "uq_invite_code_usage_member", columnNames = "workspace_member_id")
         })

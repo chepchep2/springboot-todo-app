@@ -9,24 +9,21 @@ import com.chep.demo.todo.domain.workspace.WorkspaceMemberRepository;
 import com.chep.demo.todo.domain.workspace.WorkspaceRepository;
 import com.chep.demo.todo.dto.invitation.InvitationAcceptResult;
 import com.chep.demo.todo.dto.invitation.InvitationItem;
-import com.chep.demo.todo.dto.invitation.InviteCreateResult;
-import com.chep.demo.todo.dto.invitation.InviteResendResult;
+import com.chep.demo.todo.dto.invitation.InvitationResult;
 import com.chep.demo.todo.exception.auth.UserNotFoundException;
+import com.chep.demo.todo.exception.invitation.AlreadyWorkspaceMemberException;
 import com.chep.demo.todo.exception.invitation.InvitationValidationException;
 import com.chep.demo.todo.exception.invitation.InviteCodeNotFoundException;
 import com.chep.demo.todo.exception.workspace.WorkspaceNotFoundException;
 import com.chep.demo.todo.exception.workspace.WorkspacePolicyViolationException;
-import com.chep.demo.todo.service.email.ResendEmailSender;
 import com.chep.demo.todo.service.invitation.event.InvitationsCreatedEvent;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.beans.factory.annotation.Value;
 
 import java.time.Instant;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -36,9 +33,9 @@ public class InvitationService {
     private final WorkspaceRepository workspaceRepository;
     private final UserRepository userRepository;
     private final InviteCodeUsageRepository inviteCodeUsageRepository;
-    private final ResendEmailSender resendEmailSender;
     private final WorkspaceMemberRepository workspaceMemberRepository;
     private final ApplicationEventPublisher applicationEventPublisher;
+    private final InvitationLinkBuilder invitationLinkBuilder;
 
     public InvitationService(
             InviteCodeRepository inviteCodeRepository,
@@ -46,164 +43,87 @@ public class InvitationService {
             WorkspaceRepository workspaceRepository,
             UserRepository userRepository,
             InviteCodeUsageRepository inviteCodeUsageRepository,
-            ResendEmailSender resendEmailSender,
             WorkspaceMemberRepository workspaceMemberRepository,
-            ApplicationEventPublisher applicationEventPublisher
+            ApplicationEventPublisher applicationEventPublisher,
+            InvitationLinkBuilder invitationLinkBuilder
     ) {
         this.inviteCodeRepository = inviteCodeRepository;
         this.invitationRepository = invitationRepository;
         this.workspaceRepository = workspaceRepository;
         this.userRepository = userRepository;
         this.inviteCodeUsageRepository = inviteCodeUsageRepository;
-        this.resendEmailSender = resendEmailSender;
         this.workspaceMemberRepository = workspaceMemberRepository;
         this.applicationEventPublisher = applicationEventPublisher;
+        this.invitationLinkBuilder = invitationLinkBuilder;
     }
+    private static final int EMAIL_MAX_COUNT = 20;
 
-    public InviteCreateResult createInvitations(Long workspaceId, Long requesterUserId, List<String> emails, Integer expiresInDays) {
+    public InvitationResult createInvitations(Long workspaceId, Long requesterUserId, List<String> emails, Integer expiresInDays) {
         // 1. workspace 조회 + owner 체크
-        Workspace workspace = workspaceRepository.findByIdWithMembers(workspaceId)
-                .orElseThrow(() -> new WorkspaceNotFoundException("Workspace not found"));
-        if (workspace.isPersonal()) {
-            throw new WorkspacePolicyViolationException("Personal workspace cannot invite members");
-        }
-        workspace.requireOwnerMember(requesterUserId);
+        Workspace workspace = loadWorkspaceForOwner(workspaceId, requesterUserId);
         User owner = workspace.getOwner();
-        // 2. 이메일 정규화 + 필터링
-        if (emails == null || emails.isEmpty()) {
-            throw new InvitationValidationException("emails must not be empty");
-        }
+
         int effectiveExpires = expiresInDays == null ? InviteCode.DEFAULT_EXPIRATION_DAYS : expiresInDays;
         InviteCode.validateExpirationDays(effectiveExpires);
 
-        Set<String> normalized = new HashSet<>();
-        for (String email: emails) {
-            normalized.add(Invitation.normalizeEmail(email));
-        }
-        if (normalized.size() > 20) {
-            throw new InvitationValidationException("max 20 emails");
-        }
-
-        Set<String> activeEmails = workspace.getActiveMembers().stream()
-                .map(m -> Invitation.normalizeEmail(m.getUser().getEmail()))
-                .collect(Collectors.toSet());
-
-        List<String> targetEmails = normalized.stream()
-                .filter(e -> !activeEmails.contains(e))
-                .toList();
+        // 2. 이메일 정규화 + 필터링
+        Set<String> activeEmails = new HashSet<>(
+                workspaceMemberRepository.findActiveMemberEmails(workspaceId)
+        );
+        List<String> targetEmails = filterTargetEmails(emails, activeEmails);
         if (targetEmails.isEmpty()) {
-            return new InviteCreateResult(List.of());
+            return new InvitationResult(List.of());
         }
-        // 3. InviteCode 생성
-        Instant now = Instant.now();
-        InviteCode inviteCode = InviteCode.create(workspace, owner, effectiveExpires);
-        inviteCodeRepository.save(inviteCode);
-        // 4. Invitation 생성
-        List<Invitation> invitations = targetEmails.stream()
-                .map(email -> Invitation.create(owner, inviteCode, email, now))
-                .toList();
-        invitations = invitationRepository.saveAll(invitations);
-        // 5. 메일 발송
+        // 3. InviteCode, Invitation 생성
+        List<Invitation> invitations = createAndSaveInvitations(workspace, owner, effectiveExpires, targetEmails);
+        // 4. 메일 발송
         List<Long> ids = invitations.stream().map(Invitation::getId).toList();
         applicationEventPublisher.publishEvent(new InvitationsCreatedEvent(ids));
 
-        List<InvitationItem> items = invitations.stream()
-                .map(inv -> new InvitationItem(
-                        inv.getId(),
-                        inv.getSentEmail(),
-                        inv.getInviteCode().getCode(),
-                        inv.getStatus().name(),
-                        inv.getInviteCode().getExpiresAt(),
-                        buildInviteUrl(inv.getInviteCode().getCode()),
-                        inv.getSentAt()
-                )).toList();
-
-        return new InviteCreateResult(items);
+        return toCreateResult(invitations);
     }
 
-    public InviteResendResult resendInvitation(Long workspaceId, Long requesterUserId, String email) {
+    public InvitationResult resendInvitation(Long workspaceId, Long requesterUserId, String email) {
         Instant now = Instant.now();
         String normalizedEmail = Invitation.normalizeEmail(email);
         // 1. owner 체크
-        Workspace workspace = workspaceRepository.findByIdWithMembers(workspaceId)
-                .orElseThrow(() -> new WorkspaceNotFoundException("Workspace not found"));
-        if (workspace.isPersonal()) {
-            throw new WorkspacePolicyViolationException("Personal workspace cannot invite members");
-        }
-        workspace.requireOwnerMember(requesterUserId);
+        Workspace workspace = loadWorkspaceForOwner(workspaceId, requesterUserId);
         // 2. 이미 ACTIVE 멤버면 resend 보낼 필요가 없다.
-        boolean alreadyActive = workspace.getActiveMembers().stream()
-                .map(m -> Invitation.normalizeEmail(m.getUser().getEmail()))
-                .anyMatch(e -> e.equals(normalizedEmail));
-
-        if (alreadyActive) {
-            throw new InvitationValidationException("Email already belongs to an active member");
-        }
-        // 3. 기존 invitation(PENDING/SENT) expire
-        List<Invitation> existing = invitationRepository.findByInviteCodeWorkspaceIdAndSentEmailAndStatusIn(workspaceId, normalizedEmail, List.of(Invitation.Status.PENDING, Invitation.Status.SENT));
-
-        for (Invitation inv : existing) {
-            inv.expire(now);
-        }
-        invitationRepository.saveAll(existing);
-        // 4. 새 InviteCode + Invitation 생성
-        User owner = workspace.getOwner();
-        InviteCode newCode = inviteCodeRepository.save(InviteCode.create(workspace, owner, InviteCode.DEFAULT_EXPIRATION_DAYS));
-        Invitation newInvitation = invitationRepository.save(Invitation.create(owner, newCode, normalizedEmail, now));
-        // 5. 메일 발송
+        validateNotActiveMember(workspaceId, normalizedEmail);
+        // 3. 기존 invitation(PENDING/SENT) expire, 새 InviteCode + Invitation 생성
+        Invitation newInvitation = recreateInvitation(workspace, normalizedEmail);
+        // 4. 메일 발송
         applicationEventPublisher.publishEvent(new InvitationsCreatedEvent(List.of(newInvitation.getId())));
 
-        InvitationItem item = new InvitationItem(
-                newInvitation.getId(),
-                newInvitation.getSentEmail(),
-                newCode.getCode(),
-                newInvitation.getStatus().name(),
-                newCode.getExpiresAt(),
-                buildInviteUrl(newCode.getCode()),
-                newInvitation.getSentAt()
-        );
-        return new InviteResendResult(List.of(item));
+        return toCreateResult(List.of(newInvitation));
     }
 
-    public InvitationAcceptResult acceptInvitation(String inviteCode, Long userId) {
+    public InvitationAcceptResult acceptInvitation(Long workspaceId, String inviteCode, Long userId) {
         // 0. 입력 검증
-        String code = inviteCode == null ? "" : inviteCode.trim();
-        if (code.isEmpty()) {
-            throw new InvitationValidationException("Invite code must not be blank");
-        }
+        String code = validateAndNormalizeCode(inviteCode);
         Instant now = Instant.now();
+
         // 1. User 조회
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new UserNotFoundException("User not found"));
+        User user = loadUser(userId);
         String email = Invitation.normalizeEmail(user.getEmail());
+
         // 2. InviteCode 조회 + 만료 체크
-        InviteCode inviteCodeEntity = inviteCodeRepository.findByCode(code)
-                .orElseThrow(() -> new InviteCodeNotFoundException("Invite code not found"));
-        inviteCodeEntity.ensureNotExpired(now);
+        InviteCode inviteCodeEntity = validateInviteCode(code, workspaceId, now);
+
         // 3. Invitation 조회
-        Invitation invitation = invitationRepository.findByInviteCodeCodeAndSentEmail(code, email)
-                .orElseThrow(() -> new InvitationValidationException("Invitation does not exist for this email"));
+        Invitation invitation = loadInvitation(code, email);
+
         // 4. workspace 조회
-        Long workspaceId = inviteCodeEntity.getWorkspace().getId();
-        Workspace workspace = workspaceRepository.findByIdWithMembers(workspaceId)
-                .orElseThrow(() -> new WorkspaceNotFoundException(""));
+        Workspace workspace = loadWorkspace(workspaceId);
+
         // 5. WorkspaceMember 처리(ACTIVE/LEFT/KICKED)
         if (workspace.hasActiveMember(user.getId())) {
             WorkspaceMember active = workspace.requireActiveMember(user.getId());
             return toResult(InvitationAcceptResult.Result.ALREADY_MEMBER, workspace, active);
         }
-        WorkspaceMember member = workspace.addMember(user);
-        workspaceMemberRepository.saveAndFlush(member);
 
-        invitation.accept(email, now);
+        WorkspaceMember member = acceptAndJoin(workspace, user, invitation, inviteCodeEntity, email, now);
 
-        try {
-            inviteCodeUsageRepository.save(InviteCodeUsage.record(inviteCodeEntity, member, now));
-        } catch (DataIntegrityViolationException ignored) {
-            // 이미 기록된 usage
-        }
-
-        invitationRepository.save(invitation);
         // 7. 결과 DTO 반환
         return toResult(InvitationAcceptResult.Result.SUCCESS, workspace, member);
     }
@@ -214,9 +134,146 @@ public class InvitationService {
         return new InvitationAcceptResult(result, w, m);
     }
 
-    @Value("${app.base-url}")
-    private String baseUrl;
-    private String buildInviteUrl(String code) {
-        return baseUrl + "/invitations/" + code + "/accept";
+    private WorkspaceMember saveMember(Workspace workspace, User user) {
+        try {
+            WorkspaceMember member = workspace.addMember(user);
+            return workspaceMemberRepository.saveAndFlush(member);
+        } catch (DataIntegrityViolationException e) {
+            throw new AlreadyWorkspaceMemberException("ALREADY MEMBER");
+        }
+    }
+
+    private Workspace loadWorkspaceForOwner(Long workspaceId, Long userId) {
+        Workspace workspace = workspaceRepository.findByIdWithMembers(workspaceId)
+                .orElseThrow(() -> new WorkspaceNotFoundException("Workspace not found"));
+        if (workspace.isPersonal()) {
+            throw new WorkspacePolicyViolationException("Personal workspace cannot invite members");
+        }
+        workspace.requireOwnerMember(userId);
+        return workspace;
+    }
+
+    private List<String> filterTargetEmails(List<String> emails, Set<String> activeEmails) {
+        if (emails == null || emails.isEmpty()) {
+            throw new InvitationValidationException("emails must not be empty");
+        }
+
+        Set<String> normalized = new HashSet<>();
+
+        for (String email: emails) {
+            normalized.add(Invitation.normalizeEmail(email));
+        }
+
+        if (normalized.size() > EMAIL_MAX_COUNT) {
+            throw new InvitationValidationException("max " + EMAIL_MAX_COUNT + " emails");
+        }
+
+        return normalized.stream()
+                .filter(e -> !activeEmails.contains(e))
+                .toList();
+    }
+
+    private List<Invitation> createAndSaveInvitations(Workspace workspace, User owner, int effectiveExpires, List<String> targetEmails) {
+        Instant now = Instant.now();
+        InviteCode inviteCode = InviteCode.create(workspace, owner, effectiveExpires);
+        inviteCodeRepository.save(inviteCode);
+
+        List<Invitation> invitations = targetEmails.stream()
+                .map(email -> Invitation.create(owner, inviteCode, email, now))
+                .toList();
+        invitations = invitationRepository.saveAll(invitations);
+        return invitations;
+    }
+
+    private void validateNotActiveMember(Long workspaceId, String normalizedEmail) {
+        Set<String> activeEmails = new HashSet<>(
+                workspaceMemberRepository.findActiveMemberEmails(workspaceId)
+        );
+
+        if (activeEmails.contains(normalizedEmail)) {
+            throw new InvitationValidationException("Email already belongs to an active member");
+        }
+    }
+
+    private Invitation recreateInvitation(Workspace workspace, String normalizedEmail) {
+        Instant now = Instant.now();
+
+        invitationRepository.bulkCancelPendingOrSent(
+                workspace.getId(),
+                normalizedEmail,
+                now
+        );
+
+        User owner = workspace.getOwner();
+        InviteCode newCode = inviteCodeRepository.save(
+                InviteCode.create(workspace, owner, InviteCode.DEFAULT_EXPIRATION_DAYS)
+        );
+
+        return invitationRepository.save(
+                Invitation.create(owner, newCode, normalizedEmail, now)
+        );
+    }
+
+    private InvitationResult toCreateResult(List<Invitation> invitations) {
+        List<InvitationItem> items = invitations.stream()
+                .map(inv -> new InvitationItem(
+                        inv.getId(),
+                        inv.getSentEmail(),
+                        inv.getInviteCode().getCode(),
+                        inv.getStatus().name(),
+                        inv.getInviteCode().getExpiresAt(),
+                        invitationLinkBuilder.buildInviteUrl(inv.getInviteCode().getCode()),
+                        inv.getSentAt()
+                ))
+                .toList();
+
+        return new InvitationResult(items);
+    }
+
+    private String validateAndNormalizeCode(String inviteCode) {
+        String code = inviteCode == null ? "" : inviteCode.trim();
+        if (code.isEmpty()) {
+            throw new InvitationValidationException("Invite code must not be blank");
+        }
+        return code;
+    }
+
+    private User loadUser(Long userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
+    }
+
+    private InviteCode validateInviteCode(String code, Long workspaceId, Instant now) {
+        InviteCode inviteCodeEntity = inviteCodeRepository.findByCode(code)
+                .orElseThrow(() -> new InviteCodeNotFoundException("Invite code not found"));
+
+        inviteCodeEntity.ensureNotExpired(now);
+
+        if (!inviteCodeEntity.getWorkspace().getId().equals(workspaceId)) {
+            throw new InviteCodeNotFoundException("Invite code not found in this workspace");
+        }
+
+        return inviteCodeEntity;
+    }
+
+    private Invitation loadInvitation(String code, String email) {
+        return invitationRepository.findByInviteCodeCodeAndSentEmail(code, email)
+                .orElseThrow(() -> new InvitationValidationException("Invitation does not exist for this email"));
+    }
+
+    private Workspace loadWorkspace(Long workspaceId) {
+        return workspaceRepository.findByIdWithMembers(workspaceId)
+                .orElseThrow(() -> new WorkspaceNotFoundException("Workspace not found"));
+    }
+
+    private WorkspaceMember acceptAndJoin(Workspace workspace, User user, Invitation invitation, InviteCode inviteCodeEntity, String email, Instant now) {
+        WorkspaceMember member = saveMember(workspace, user);
+
+        invitation.accept(email, now);
+        invitationRepository.save(invitation);
+
+        inviteCodeUsageRepository.saveIfNotExists(InviteCodeUsage.record(inviteCodeEntity, member, now));
+
+        return member;
     }
 }
