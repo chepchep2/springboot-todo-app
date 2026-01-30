@@ -53,7 +53,7 @@ public class InvitationEmailService {
             invitationEmailTxService.markSent(invitationId, now);
         } catch (WebClientResponseException e) {
             log.error("Resend API error. invitationId={}, status={}, body={}",
-                    invitationId, e.getStackTrace(), e.getResponseBodyAsString(), e);
+                    invitationId, e.getStatusCode(), e.getResponseBodyAsString(), e);
             invitationEmailTxService.markFailed(invitationId);
         } catch(Exception e) {
             log.error("Failed to send invitation email. invitationId={}, email={}",

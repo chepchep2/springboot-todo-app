@@ -15,7 +15,7 @@ import java.util.concurrent.TimeUnit;
 public class InvitationQueueConsumer {
     private static final Logger log = LoggerFactory.getLogger(InvitationQueueConsumer.class);
     private static final int BLOCKING_TIMEOUT_SECONDS = 5;
-    private static final int SEND_INTERVAL_MS = 1000;
+    private static final int SEND_INTERVAL_MS = 500;
     private final RedisTemplate<String, String> redisTemplate;
     private final InvitationProcessor invitationProcessor;
 
