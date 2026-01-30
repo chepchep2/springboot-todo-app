@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 public interface InvitationRepository extends JpaRepository<Invitation, Long> {
     Optional<Invitation> findByInviteCodeCodeAndSentEmail(String code, String sentEmail);
@@ -40,4 +41,31 @@ public interface InvitationRepository extends JpaRepository<Invitation, Long> {
     int bulkCancelPendingOrSent(@Param("workspaceId") Long workspaceId,
                                       @Param("email") String email,
                                       @Param("now")Instant now);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            UPDATE Invitation i 
+            SET 
+                i.status = com.chep.demo.todo.domain.invitation.Invitation.Status.SENDING,
+                i.sendingAt = :now
+            WHERE
+                i.id = :invitationId
+            AND 
+                i.status = com.chep.demo.todo.domain.invitation.Invitation.Status.PENDING
+            """)
+    int tryMarkSending(@Param("invitationId") Long invitationId,
+                       @Param("now") Instant now);
+
+    @Query("""
+            SELECT i.sentEmail
+            FROM Invitation i
+            WHERE
+                i.inviteCode.workspace.id = :workspaceId
+            AND
+                i.status In (
+                com.chep.demo.todo.domain.invitation.Invitation.Status.PENDING,
+                com.chep.demo.todo.domain.invitation.Invitation.Status.SENT
+                )
+            """)
+    Set<String> findPendingOrSentEmails(@Param("workspaceId") Long workspaceId);
 }
