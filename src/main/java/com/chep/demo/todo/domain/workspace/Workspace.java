@@ -88,7 +88,7 @@ public class Workspace {
         }
 
         public Workspace build() {
-            return new Workspace( name, description, personal);
+            return new Workspace(name, description, personal);
         }
     }
 
@@ -113,6 +113,7 @@ public class Workspace {
                 .description(description)
                 .personal(false)
                 .build();
+
         ws.addOwner(owner);
         return ws;
     }
