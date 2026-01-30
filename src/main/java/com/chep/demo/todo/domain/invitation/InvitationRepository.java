@@ -1,0 +1,71 @@
+package com.chep.demo.todo.domain.invitation;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+
+public interface InvitationRepository extends JpaRepository<Invitation, Long> {
+    Optional<Invitation> findByInviteCodeCodeAndSentEmail(String code, String sentEmail);
+    List<Invitation> findByInviteCodeWorkspaceIdAndSentEmailAndStatusIn(Long workspaceId, String sentEmail, List<Invitation.Status> statuses);
+    @Query("""
+            SELECT i
+            FROM Invitation i
+            JOIN FETCH i.inviteCode ic
+            JOIN FETCH ic.workspace w
+            WHERE i.id = :invitationId
+            """)
+    Optional<Invitation> findForEmailSend(@Param("invitationId") Long invitationId);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            UPDATE Invitation i
+            SET
+                i.status = com.chep.demo.todo.domain.invitation.Invitation.Status.CANCELLED,
+                i.expiredAt = :now
+            WHERE
+                i.inviteCode.workspace.id = :workspaceId
+            AND
+                i.sentEmail = :email
+            AND
+                i.status IN (
+                    com.chep.demo.todo.domain.invitation.Invitation.Status.PENDING,
+                    com.chep.demo.todo.domain.invitation.Invitation.Status.SENT
+                )                         
+            """)
+    int bulkCancelPendingOrSent(@Param("workspaceId") Long workspaceId,
+                                      @Param("email") String email,
+                                      @Param("now")Instant now);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            UPDATE Invitation i 
+            SET 
+                i.status = com.chep.demo.todo.domain.invitation.Invitation.Status.SENDING,
+                i.sendingAt = :now
+            WHERE
+                i.id = :invitationId
+            AND 
+                i.status = com.chep.demo.todo.domain.invitation.Invitation.Status.PENDING
+            """)
+    int tryMarkSending(@Param("invitationId") Long invitationId,
+                       @Param("now") Instant now);
+
+    @Query("""
+            SELECT i.sentEmail
+            FROM Invitation i
+            WHERE
+                i.inviteCode.workspace.id = :workspaceId
+            AND
+                i.status In (
+                com.chep.demo.todo.domain.invitation.Invitation.Status.PENDING,
+                com.chep.demo.todo.domain.invitation.Invitation.Status.SENT
+                )
+            """)
+    Set<String> findPendingOrSentEmails(@Param("workspaceId") Long workspaceId);
+}
