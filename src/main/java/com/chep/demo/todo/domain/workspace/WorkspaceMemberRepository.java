@@ -13,7 +13,7 @@ public interface WorkspaceMemberRepository extends JpaRepository<WorkspaceMember
         SELECT wm FROM WorkspaceMember wm
         JOIN FETCH wm.user u
         WHERE wm.workspace.id = :workspaceId
-            AND wm.status = :status            
+            AND wm.status = :status
         ORDER BY wm.joinedAt DESC, wm.id DESC
         """)
     List<WorkspaceMember> findFirstPage(
